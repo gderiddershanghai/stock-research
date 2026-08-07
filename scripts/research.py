@@ -21,7 +21,7 @@ DOCS = ROOT / "docs"
 REGISTRY = DOCS / "data" / "registry.json"
 TEMPLATE = ROOT / "scripts" / "template.html"
 
-PRE_DAYS = 20   # trading days shown before the report
+PRE_DAYS = 10   # trading days shown before the report
 POST_DAYS = 10  # trading days shown after the report
 MAX_EVENTS = 8
 
