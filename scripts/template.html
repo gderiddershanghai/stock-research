@@ -4,14 +4,14 @@
 <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
 <style>
   :root { --ink:#24292f; --muted:#6a737d; --accent:#0072B2; --pos:#009E73; --neg:#D55E00;
-          --grid:#eef1f4; --gray:#c3c9d0; }
+          --grid:#eef1f4; --gray:#c3c9d0; --band:#f1f6fb; --band-edge:#d7e5f2; }
   body { background:#fff; color:var(--ink); font:16px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif;
          margin:0; padding:24px 16px 48px; }
   main { max-width:760px; margin:0 auto; }
   a { color:var(--accent); }
   .crumb { font-size:14px; margin-bottom:18px; }
   h1 { font-size:26px; margin:0 0 2px; } .sub { color:var(--muted); margin:0 0 16px; font-size:15px; }
-  .next { background:#f1f6fb; border:1px solid #d7e5f2; border-radius:10px; padding:12px 16px;
+  .next { background:var(--band); border:1px solid var(--band-edge); border-radius:10px; padding:12px 16px;
           margin:0 0 26px; display:flex; gap:10px; flex-wrap:wrap; align-items:baseline; }
   .next-label { font-size:13px; text-transform:uppercase; letter-spacing:.05em; color:var(--accent); font-weight:700; }
   .next-date { font-weight:700; } .next-when { color:var(--muted); }
@@ -20,14 +20,20 @@
   .tooltip { position:fixed; pointer-events:none; background:var(--ink); color:#fff; padding:6px 10px;
              border-radius:6px; font-size:13px; line-height:1.4; opacity:0; z-index:10;
              font-variant-numeric:tabular-nums; transition:opacity .12s; }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; margin:10px 0 14px; }
+  .chip { font:600 13.5px/1 inherit; font-family:inherit; padding:8px 14px; border-radius:999px;
+          border:1.5px solid #d0d7de; background:#fff; color:var(--ink); cursor:pointer; }
+  .chip.clear { border-style:dashed; color:var(--muted); font-weight:400; }
   .hint { color:var(--muted); font-size:13px; font-style:italic; margin:6px 0 0; }
   table { border-collapse:collapse; width:100%; font-variant-numeric:tabular-nums; font-size:14.5px; margin-top:6px; }
   th, td { padding:7px 8px; text-align:right; border-bottom:1px solid var(--grid); white-space:nowrap; }
   th { font-weight:600; } tbody th { text-align:left; }
   thead th { color:var(--muted); font-weight:600; font-size:12.5px; vertical-align:bottom; }
   td.neg { color:var(--neg); } td.pos { color:var(--pos); } td.na { color:var(--muted); }
+  .rpt { background:var(--band); border-left:2px solid var(--band-edge); border-right:2px solid var(--band-edge); }
+  thead th.rpt { color:var(--accent); }
   tr.med { border-top:2px solid #d8dde2; } tr.med th, tr.med td { font-weight:700; }
-  tbody tr.hl { background:#f1f6fb; }
+  tbody tr.hl { background:#fff8e6; } tbody tr.hl td.rpt { background:#f6efd8; }
   .tablewrap { overflow-x:auto; }
   footer { margin-top:40px; color:var(--muted); font-size:13px; border-top:1px solid var(--grid); padding-top:14px; }
 </style>
@@ -44,16 +50,24 @@
 <p class="note" id="beats"></p>
 <p class="note">Each line is one quarter's stock price around its report, shown as % difference from the
 closing price on the day before results came out. The blue line is the middle (median) of all quarters.</p>
+<div class="chips" id="chips"></div>
 <div id="overlay"></div>
-<p class="hint">Touch or hover a line to see that quarter. Click a bar below to pin it.</p>
+<p class="hint">Click the buttons above (or any bar or dot below) to highlight quarters — several at once
+is fine, click again to remove. Hover anything for details.</p>
 <h2>How the stock moved on the day results came out</h2>
 <p class="note">Change from the previous day's close to the report day's close.</p>
 <div id="bars"></div>
+<h2 id="scatter-h">Beating expectations vs. what the price did</h2>
+<p class="note">Each dot is one report: how far profits came in above or below the analyst estimate
+(left–right), and what the share price did on report day (up–down). Dots in the lower-right corner
+beat expectations and the price <em>still</em> fell.</p>
+<div id="scatter"></div>
 <h2>Quarter by quarter</h2>
 <div class="tablewrap"><table id="table"></table></div>
-<p class="note">"Profit vs expected": reported profit per share (EPS) compared with the average analyst
-estimate. "Before" columns: how much the price changed over that stretch leading into the report.
-"After" columns: how much it changed from the report-day close. Weeks are trading weeks (5 market days).</p>
+<p class="note" id="table-note">Every change is measured against the report: "before" columns show how much the price
+rose or fell over that stretch <em>leading into</em> the report (ending at the last close before results);
+the highlighted <strong>report day</strong> column is the move on the day results came out; "after"
+columns show what happened <em>from the report-day close onward</em>. Weeks are trading weeks (5 market days).</p>
 <footer id="foot"></footer>
 <div class="tooltip" id="tip"></div>
 </main>
@@ -66,7 +80,7 @@ const median = a => { const s=a.filter(v=>v!=null).sort((x,y)=>x-y), n=s.length;
 Promise.resolve(__DATA__).then(D => {
   const tip = d3.select("#tip");
   const showTip = (ev, html) => tip.html(html).style("opacity",1)
-      .style("left", Math.min(ev.clientX+14, innerWidth-170)+"px").style("top", (ev.clientY+14)+"px");
+      .style("left", Math.min(ev.clientX+14, innerWidth-190)+"px").style("top", (ev.clientY+14)+"px");
   const hideTip = () => tip.style("opacity",0);
 
   // ---- header
@@ -82,8 +96,8 @@ Promise.resolve(__DATA__).then(D => {
     : `${D.ticker} has risen on report day in ${n-downs} of the last ${n} quarters (median move ${fmt(medMove)})`);
   const medAbs = median(D.events.map(e=>Math.abs(e.reaction)));
   d3.select("#swing").html(`<strong>Report-day moves are often large:</strong> typically about ${medAbs.toFixed(0)}% up or down.`);
-  const beat = e => e.surprise!=null && e.epsAct>=e.epsEst;
-  const rated = D.events.filter(e=>e.surprise!=null), beats = rated.filter(beat);
+  const isBeat = e => e.surprise!=null && e.epsAct>=e.epsEst;
+  const rated = D.events.filter(e=>e.surprise!=null), beats = rated.filter(isBeat);
   const fellAfterBeat = beats.filter(e=>e.reaction<0).length;
   if (rated.length) {
     let s = `<strong>Results vs expectations:</strong> profits beat analyst estimates in ${beats.length} of the last ${rated.length} quarters`;
@@ -92,19 +106,41 @@ Promise.resolve(__DATA__).then(D => {
   }
   d3.select("#foot").text(`Prices from Yahoo Finance (dividend-adjusted closes), ${n} most recent reported quarters. Generated ${D.updated}. Informational only.`);
 
-  // ---- shared highlight state
-  let pinned = null;   // event label or null
-  const setHl = label => {
-    const active = label ?? pinned;
-    d3.selectAll("path.qline").attr("stroke", d => d.label===active ? css("--neg") : css("--gray"))
-      .attr("stroke-width", d => d.label===active ? 2.4 : 1.3)
-      .each(function(d){ if (d.label===active) this.parentNode.appendChild(this); });
-    d3.selectAll("text.qlabel").attr("fill", d => d.label===active ? css("--neg") : css("--muted"))
-      .attr("font-weight", d => d.label===active ? 700 : 400);
-    d3.selectAll("rect.qbar").attr("opacity", d => active==null || d.label===active ? 1 : .35);
-    d3.selectAll("#table tbody tr").classed("hl", function(){ return this.dataset.label===active; });
+  // ---- selection state (multi-select, persistent) + hover preview
+  const PAL = ["#D55E00","#E69F00","#009E73","#CC79A7","#56B4E9","#785EF0","#994F00","#000000"];
+  const qcolor = {}; D.events.forEach((e,i)=>qcolor[e.label]=PAL[i%PAL.length]);
+  const sel = new Set();
+  let hover = null;
+  const active = l => sel.has(l) || hover===l;
+  function refresh() {
+    d3.selectAll("path.qline").attr("stroke", d=>active(d.label)?qcolor[d.label]:css("--gray"))
+      .attr("stroke-width", d=>active(d.label)?2.4:1.3)
+      .each(function(d){ if (active(d.label)) this.parentNode.appendChild(this); });
     d3.select("path.median").raise();
-  };
+    d3.selectAll("text.qlabel").attr("fill", d=>active(d.label)?qcolor[d.label]:css("--muted"))
+      .attr("font-weight", d=>active(d.label)?700:400);
+    const dimming = sel.size>0 || hover!=null;
+    d3.selectAll("rect.qbar").attr("opacity", d=>!dimming||active(d.label)?1:.35);
+    d3.selectAll("circle.qdot").attr("stroke", d=>active(d.label)?qcolor[d.label]:"#fff")
+      .attr("stroke-width", d=>active(d.label)?3:1.5).attr("r", d=>active(d.label)?7.5:6);
+    d3.selectAll("button.chip:not(.clear)")
+      .style("background", d=>sel.has(d.label)?qcolor[d.label]:"#fff")
+      .style("color", d=>sel.has(d.label)?"#fff":css("--ink"))
+      .style("border-color", d=>sel.has(d.label)?qcolor[d.label]:"#d0d7de");
+    d3.selectAll("#table tbody tr").each(function(){
+      d3.select(this).classed("hl", active(this.dataset.label)); });
+  }
+  const toggle = l => { sel.has(l) ? sel.delete(l) : sel.add(l); refresh(); };
+  const setHover = l => { hover = l; refresh(); };
+
+  // ---- quarter buttons (chronological, left to right)
+  const chips = d3.select("#chips");
+  chips.selectAll("button.q").data(D.events).join("button")
+    .attr("class","chip q").text(d=>d.label)
+    .on("click",(ev,d)=>toggle(d.label))
+    .on("pointerenter",(ev,d)=>setHover(d.label)).on("pointerleave",()=>setHover(null));
+  chips.append("button").attr("class","chip clear").text("clear all")
+    .on("click",()=>{ sel.clear(); refresh(); });
 
   // ---- overlay chart
   {
@@ -132,59 +168,64 @@ Promise.resolve(__DATA__).then(D => {
     const line = d3.line().x(p=>x(p[0])).y(p=>y(p[1]));
     const g = svg.append("g");
     g.selectAll("path.qline").data(D.events).join("path").attr("class","qline")
-      .attr("d",d=>line(d.points)).attr("fill","none").attr("stroke",css("--gray")).attr("stroke-width",1.3);
+      .attr("d",d=>line(d.points)).attr("fill","none").attr("stroke",css("--gray")).attr("stroke-width",1.3)
+      .style("cursor","pointer").on("click",(ev,d)=>toggle(d.label));
     svg.append("path").datum(D.median).attr("class","median").attr("d",line)
       .attr("fill","none").attr("stroke",css("--accent")).attr("stroke-width",2.6);
 
-    // collision-avoided end labels
     const ends = D.events.map(e=>({label:e.label, x:x(e.points.at(-1)[0]), y:y(e.points.at(-1)[1])}));
     ends.push({label:"Median", x:x(D.median.at(-1)[0]), y:y(D.median.at(-1)[1]), med:true});
     ends.sort((a,b)=>a.y-b.y);
     for (let i=1;i<ends.length;i++) if (ends[i].y-ends[i-1].y<12) ends[i].y=ends[i-1].y+12;
-    svg.selectAll("text.qlabel").data(ends).join("text").attr("class",d=>d.med?"":"qlabel")
+    svg.selectAll("text.qlab").data(ends).join("text").attr("class",d=>d.med?"":"qlabel")
       .attr("x",d=>d.x+6).attr("y",d=>d.y+4).attr("font-size",12)
       .attr("fill",d=>d.med?css("--accent"):css("--muted")).attr("font-weight",d=>d.med?700:400)
-      .text(d=>d.label);
+      .style("cursor",d=>d.med?"default":"pointer").text(d=>d.label)
+      .on("click",(ev,d)=>{ if(!d.med) toggle(d.label); });
 
-    // nearest-point hover via delaunay over all quarter points
     const flat = D.events.flatMap(e=>e.points.map(p=>({label:e.label, off:p[0], val:p[1]})));
     const del = d3.Delaunay.from(flat, p=>x(p.off), p=>y(p.val));
-    const dot = svg.append("circle").attr("r",4).attr("fill",css("--neg")).attr("opacity",0);
+    const dot = svg.append("circle").attr("r",4).attr("opacity",0).style("pointer-events","none");
     svg.on("pointermove", ev => {
       const [mx,my] = d3.pointer(ev, svg.node());
       if (mx<ml-10||mx>ml+pw+40||my<mt-10||my>mt+ph+10) return;
       const p = flat[del.find(mx,my)];
-      setHl(p.label);
-      dot.attr("cx",x(p.off)).attr("cy",y(p.val)).attr("opacity",1);
+      setHover(p.label);
+      dot.attr("cx",x(p.off)).attr("cy",y(p.val)).attr("fill",qcolor[p.label]).attr("opacity",1);
       const when = p.off<0 ? `${-p.off} trading day${p.off===-1?"":"s"} before report`
                  : p.off===0 ? "report day" : `${p.off} trading day${p.off===1?"":"s"} after report`;
       showTip(ev, `<strong>${p.label} report</strong><br>${when}<br>${fmt(p.val)} vs day before report`);
-    }).on("pointerleave", () => { setHl(null); dot.attr("opacity",0); hideTip(); });
+    }).on("pointerleave", () => { setHover(null); dot.attr("opacity",0); hideTip(); });
+    svg.on("click", ev => {
+      const [mx,my] = d3.pointer(ev, svg.node());
+      if (mx<ml-10||mx>ml+pw+40||my<mt-10||my>mt+ph+10) return;
+      toggle(flat[del.find(mx,my)].label);
+    });
   }
 
   // ---- report-day bars
   {
-    const W=720, H=260, ml=46, mr=12, mt=24, mb=30, pw=W-ml-mr, ph=H-mt-mb;
+    const W=720, H=270, ml=46, mr=12, mt=24, mb=40, pw=W-ml-mr, ph=H-mt-mb;
     const svg = d3.select("#bars").append("svg").attr("viewBox",`0 0 ${W} ${H}`);
     const vals = D.events.map(e=>e.reaction);
     const y = d3.scaleLinear().domain([Math.min(...vals,0)-1, Math.max(...vals,0)+1]).nice().range([mt+ph, mt]);
     const slot = pw/D.events.length, bw = Math.min(slot*.55, 56);
+    const cx = i => ml + slot*(i+.5);
     const barTip = d => {
       let s = `<strong>${d.label} report</strong><br>${fmt(d.reaction)} on report day`;
       if (d.surprise != null)
-        s += `<br>Profit $${d.epsAct.toFixed(2)}/share vs $${d.epsEst.toFixed(2)} expected<br>(${d.epsAct>=d.epsEst?"beat":"missed"} by ${Math.abs(d.surprise).toFixed(0)}%)`;
+        s += `<br>Profit $${d.epsAct.toFixed(2)}/share vs $${d.epsEst.toFixed(2)} expected<br>(${isBeat(d)?"beat":"missed"} by ${Math.abs(d.surprise).toFixed(0)}%)`;
       return s;
     };
     svg.append("line").attr("x1",ml).attr("x2",ml+pw).attr("y1",y(0)).attr("y2",y(0)).attr("stroke","#d8dde2");
-    const cx = i => ml + slot*(i+.5);
     svg.selectAll("rect.qbar").data(D.events).join("rect").attr("class","qbar")
       .attr("x",(d,i)=>cx(i)-bw/2).attr("width",bw)
       .attr("y",d=>Math.min(y(0),y(d.reaction))).attr("height",d=>Math.max(Math.abs(y(d.reaction)-y(0)),1))
       .attr("rx",2).attr("fill",d=>d.reaction>=0?css("--pos"):css("--neg")).style("cursor","pointer")
-      .on("pointerenter", (ev,d)=>{ setHl(d.label); showTip(ev, barTip(d)); })
-      .on("pointermove", (ev,d)=>showTip(ev, barTip(d)))
-      .on("pointerleave", ()=>{ setHl(null); hideTip(); })
-      .on("click", (ev,d)=>{ pinned = pinned===d.label ? null : d.label; setHl(null); });
+      .on("pointerenter",(ev,d)=>{ setHover(d.label); showTip(ev, barTip(d)); })
+      .on("pointermove",(ev,d)=>showTip(ev, barTip(d)))
+      .on("pointerleave",()=>{ setHover(null); hideTip(); })
+      .on("click",(ev,d)=>toggle(d.label));
     svg.selectAll("text.val").data(D.events).join("text")
       .attr("x",(d,i)=>cx(i)).attr("y",d=>d.reaction>=0?y(d.reaction)-6:y(d.reaction)+15)
       .attr("text-anchor","middle").attr("font-size",12.5).attr("font-weight",600)
@@ -192,25 +233,85 @@ Promise.resolve(__DATA__).then(D => {
     svg.selectAll("text.blab").data(D.events).join("text")
       .attr("x",(d,i)=>cx(i)).attr("y",d=>d.reaction>=0?y(0)+15:y(0)-6)
       .attr("text-anchor","middle").attr("font-size",12).attr("fill",css("--muted")).text(d=>d.label);
-    svg.selectAll("text.bm").data(D.events.filter(d=>d.surprise!=null)).join("text")
-      .attr("x",(d,i)=>cx(D.events.indexOf(d))).attr("y",d=>d.reaction>=0?y(0)+29:y(0)-20)
-      .attr("text-anchor","middle").attr("font-size",11).attr("font-weight",600)
-      .attr("fill",d=>d.epsAct>=d.epsEst?css("--pos"):css("--neg"))
-      .text(d=>d.epsAct>=d.epsEst?"beat est.":"missed est.");
+  }
+
+  // ---- surprise vs reaction scatter
+  if (rated.length) {
+    const W=720, H=380, ml=52, mr=24, mt=18, mb=52, pw=W-ml-mr, ph=H-mt-mb;
+    const svg = d3.select("#scatter").append("svg").attr("viewBox",`0 0 ${W} ${H}`);
+    const xs = rated.map(e=>e.surprise), ys = rated.map(e=>e.reaction);
+    const x = d3.scaleLinear().domain([Math.min(...xs,0)-3, Math.max(...xs,0)+3]).nice().range([ml, ml+pw]);
+    const y = d3.scaleLinear().domain([Math.min(...ys,0)-2, Math.max(...ys,0)+2]).nice().range([mt+ph, mt]);
+
+    y.ticks(6).forEach(v => {
+      svg.append("line").attr("x1",ml).attr("x2",ml+pw).attr("y1",y(v)).attr("y2",y(v))
+        .attr("stroke",v===0?"#b9c2cb":css("--grid"));
+      svg.append("text").attr("x",ml-8).attr("y",y(v)+4).attr("text-anchor","end")
+        .attr("font-size",12).attr("fill",css("--muted")).text(v===0?"0%":fmt(v,0));
+    });
+    x.ticks(6).forEach(v => {
+      svg.append("line").attr("x1",x(v)).attr("x2",x(v)).attr("y1",mt).attr("y2",mt+ph)
+        .attr("stroke",v===0?"#b9c2cb":css("--grid"));
+      svg.append("text").attr("x",x(v)).attr("y",mt+ph+18).attr("text-anchor","middle")
+        .attr("font-size",12).attr("fill",css("--muted")).text(v===0?"0%":fmt(v,0));
+    });
+    svg.append("text").attr("x",ml+pw/2).attr("y",H-6).attr("text-anchor","middle")
+      .attr("font-size",12.5).attr("fill",css("--ink"))
+      .text("Profit vs analyst estimate (→ bigger beat)");
+    svg.append("text").attr("transform",`translate(14,${mt+ph/2}) rotate(-90)`).attr("text-anchor","middle")
+      .attr("font-size",12.5).attr("fill",css("--ink")).text("Share-price move on report day");
+
+    // corner hints
+    if (Math.max(...xs) > 0) {
+      if (Math.max(...ys) > 0) svg.append("text").attr("x",ml+pw-4).attr("y",mt+14).attr("text-anchor","end")
+        .attr("font-size",11.5).attr("fill",css("--muted")).attr("font-style","italic").text("beat · price rose");
+      if (Math.min(...ys) < 0) svg.append("text").attr("x",ml+pw-4).attr("y",mt+ph-8).attr("text-anchor","end")
+        .attr("font-size",11.5).attr("fill",css("--muted")).attr("font-style","italic").text("beat · price fell");
+    }
+
+    const dotTip = d => `<strong>${d.label} report</strong><br>${isBeat(d)?"Beat":"Missed"} estimate by ${Math.abs(d.surprise).toFixed(0)}%<br>${fmt(d.reaction)} on report day`;
+    svg.selectAll("circle.qdot").data(rated).join("circle").attr("class","qdot")
+      .attr("cx",d=>x(d.surprise)).attr("cy",d=>y(d.reaction)).attr("r",6)
+      .attr("fill",d=>d.reaction>=0?css("--pos"):css("--neg")).attr("stroke","#fff").attr("stroke-width",1.5)
+      .style("cursor","pointer")
+      .on("pointerenter",(ev,d)=>{ setHover(d.label); showTip(ev, dotTip(d)); })
+      .on("pointermove",(ev,d)=>showTip(ev, dotTip(d)))
+      .on("pointerleave",()=>{ setHover(null); hideTip(); })
+      .on("click",(ev,d)=>toggle(d.label));
+
+    // labels with simple collision nudge
+    const labs = rated.map(d=>({d, x:x(d.surprise)+9, y:y(d.reaction)+4})).sort((a,b)=>a.y-b.y||a.x-b.x);
+    for (let i=0;i<labs.length;i++)
+      for (let j=0;j<i;j++)
+        if (Math.abs(labs[i].x-labs[j].x)<52 && Math.abs(labs[i].y-labs[j].y)<13) labs[i].y = labs[j].y+13;
+    svg.selectAll("text.slab").data(labs).join("text")
+      .attr("x",l=>l.x).attr("y",l=>l.y).attr("font-size",11.5).attr("fill",css("--muted"))
+      .text(l=>l.d.label);
+  } else {
+    d3.select("#scatter-h").remove(); d3.select("#scatter").remove();
   }
 
   // ---- table
   {
-    const cell = v => v==null ? '<td class="na">–</td>' : `<td class="${v<0?"neg":"pos"}">${fmt(v)}</td>`;
-    const scell = v => v==null ? '<td class="na">–</td>'
-      : `<td class="${v<0?"neg":"pos"}">${v<0?"missed":"beat"} ${Math.abs(v).toFixed(0)}%</td>`;
-    const head = `<thead><tr><th>Report</th><th>Profit vs<br>expected</th><th>4&nbsp;wks<br>before</th><th>2&nbsp;wks<br>before</th>
-      <th>1&nbsp;wk<br>before</th><th>Report<br>day</th><th>1&nbsp;wk<br>after</th><th>2&nbsp;wks<br>after</th></tr></thead>`;
+    const cell = (v, extra="") => v==null ? `<td class="na ${extra}">–</td>`
+      : `<td class="${v<0?"neg":"pos"} ${extra}">${fmt(v)}</td>`;
+    const eCell = e => e.epsEst==null ? '<td class="na">–</td>' : `<td>$${e.epsEst.toFixed(2)}</td>`;
+    const aCell = e => e.epsAct==null ? '<td class="na">–</td>'
+      : e.surprise==null ? `<td>$${e.epsAct.toFixed(2)}</td>`
+      : `<td class="${isBeat(e)?"pos":"neg"}">$${e.epsAct.toFixed(2)} (${isBeat(e)?"+":"−"}${Math.abs(e.surprise).toFixed(0)}%)</td>`;
+    const head = `<thead><tr><th>Report</th><th>Analysts<br>expected</th><th>Actual<br>profit</th>
+      <th>2&nbsp;wks<br>before</th><th>1&nbsp;wk<br>before</th><th>1&nbsp;day<br>before</th>
+      <th class="rpt">Report<br>day</th><th>1&nbsp;day<br>after</th><th>1&nbsp;wk<br>after</th><th>2&nbsp;wks<br>after</th></tr></thead>`;
     const rows = [...D.events].reverse().map(e =>
-      `<tr data-label="${e.label}"><th>${e.label}</th>${scell(e.surprise)}${cell(e.runup20)}${cell(e.runup10)}${cell(e.runup5)}${cell(e.reaction)}${cell(e.drift5)}${cell(e.drift10)}</tr>`).join("");
+      `<tr data-label="${e.label}"><th>${e.label}</th>${eCell(e)}${aCell(e)}${cell(e.runup10)}${cell(e.runup5)}${cell(e.runup1)}${cell(e.reaction,"rpt")}${cell(e.drift1)}${cell(e.drift5)}${cell(e.drift10)}</tr>`).join("");
     const m = k => median(D.events.map(e=>e[k]));
-    const medRow = `<tr class="med"><th>Median</th>${scell(m("surprise"))}${cell(m("runup20"))}${cell(m("runup10"))}${cell(m("runup5"))}${cell(m("reaction"))}${cell(m("drift5"))}${cell(m("drift10"))}</tr>`;
+    const ms = m("surprise");
+    const msCell = ms==null ? '<td class="na">–</td>'
+      : `<td class="${ms>=0?"pos":"neg"}">${ms>=0?"beat":"missed"} ${Math.abs(ms).toFixed(0)}%</td>`;
+    const medRow = `<tr class="med"><th>Median</th><td class="na"></td>${msCell}${cell(m("runup10"))}${cell(m("runup5"))}${cell(m("runup1"))}${cell(m("reaction"),"rpt")}${cell(m("drift1"))}${cell(m("drift5"))}${cell(m("drift10"))}</tr>`;
     d3.select("#table").html(head + "<tbody>" + rows + medRow + "</tbody>");
+    d3.selectAll("#table tbody tr").style("cursor","pointer")
+      .on("click", function(){ if (this.dataset.label) toggle(this.dataset.label); });
   }
 });
 </script>

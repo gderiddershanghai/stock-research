@@ -93,6 +93,8 @@ def build_events(hist, past):
             "runup_20": (ref / closes.iloc[i0 - 1 - PRE_DAYS] - 1) * 100,
             "runup_10": (ref / closes.iloc[i0 - 1 - 10] - 1) * 100,
             "runup_5": (ref / closes.iloc[i0 - 1 - 5] - 1) * 100,
+            "runup_1": (ref / closes.iloc[i0 - 2] - 1) * 100,
+            "drift_1": (closes.iloc[i0 + 1] / closes.iloc[i0] - 1) * 100 if i0 + 1 < len(closes) and day0 is not None else None,
             "drift_5": (closes.iloc[i0 + 5] / closes.iloc[i0] - 1) * 100 if i0 + 5 < len(closes) and day0 is not None else None,
             "drift_10": (closes.iloc[i0 + 10] / closes.iloc[i0] - 1) * 100 if i0 + 10 < len(closes) and day0 is not None else None,
         })
@@ -142,7 +144,8 @@ def page_data(ticker, name, events, next_event, next_eps, hist, today):
             "surprise": round(e["surprise"], 1) if e["surprise"] is not None else None,
             "points": [[o, round(v, 3)] for o, v in e["points"]],
             "runup20": round(e["runup_20"], 2), "runup10": round(e["runup_10"], 2),
-            "runup5": round(e["runup_5"], 2),
+            "runup5": round(e["runup_5"], 2), "runup1": round(e["runup_1"], 2),
+            "drift1": round(e["drift_1"], 2) if e["drift_1"] is not None else None,
             "drift5": round(e["drift_5"], 2) if e["drift_5"] is not None else None,
             "drift10": round(e["drift_10"], 2) if e["drift_10"] is not None else None,
         } for e in events],
