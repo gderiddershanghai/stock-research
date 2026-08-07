@@ -1,0 +1,194 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TPR · earnings history</title>
+<script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
+<style>
+  :root { --ink:#24292f; --muted:#6a737d; --accent:#0072B2; --pos:#009E73; --neg:#D55E00;
+          --grid:#eef1f4; --gray:#c3c9d0; }
+  body { background:#fff; color:var(--ink); font:16px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif;
+         margin:0; padding:24px 16px 48px; }
+  main { max-width:760px; margin:0 auto; }
+  a { color:var(--accent); }
+  .crumb { font-size:14px; margin-bottom:18px; }
+  h1 { font-size:26px; margin:0 0 2px; } .sub { color:var(--muted); margin:0 0 16px; font-size:15px; }
+  .next { background:#f1f6fb; border:1px solid #d7e5f2; border-radius:10px; padding:12px 16px;
+          margin:0 0 26px; display:flex; gap:10px; flex-wrap:wrap; align-items:baseline; }
+  .next-label { font-size:13px; text-transform:uppercase; letter-spacing:.05em; color:var(--accent); font-weight:700; }
+  .next-date { font-weight:700; } .next-when { color:var(--muted); }
+  h2 { font-size:19px; margin:34px 0 4px; } .note { color:var(--muted); font-size:14px; margin:0 0 12px; }
+  svg { width:100%; height:auto; font-family:inherit; display:block; }
+  .tooltip { position:fixed; pointer-events:none; background:var(--ink); color:#fff; padding:6px 10px;
+             border-radius:6px; font-size:13px; line-height:1.4; opacity:0; z-index:10;
+             font-variant-numeric:tabular-nums; transition:opacity .12s; }
+  .hint { color:var(--muted); font-size:13px; font-style:italic; margin:6px 0 0; }
+  table { border-collapse:collapse; width:100%; font-variant-numeric:tabular-nums; font-size:14.5px; margin-top:6px; }
+  th, td { padding:7px 8px; text-align:right; border-bottom:1px solid var(--grid); white-space:nowrap; }
+  th { font-weight:600; } tbody th { text-align:left; }
+  thead th { color:var(--muted); font-weight:600; font-size:12.5px; vertical-align:bottom; }
+  td.neg { color:var(--neg); } td.pos { color:var(--pos); } td.na { color:var(--muted); }
+  tr.med { border-top:2px solid #d8dde2; } tr.med th, tr.med td { font-weight:700; }
+  tbody tr.hl { background:#f1f6fb; }
+  .tablewrap { overflow-x:auto; }
+  footer { margin-top:40px; color:var(--muted); font-size:13px; border-top:1px solid var(--grid); padding-top:14px; }
+</style>
+</head><body><main>
+<p class="crumb"><a href="./">← All stocks</a></p>
+<h1 id="title"></h1>
+<p class="sub" id="sub"></p>
+<div class="next" id="next" hidden>
+  <span class="next-label">Next report</span><span class="next-date" id="next-date"></span>
+  <span class="next-when" id="next-when"></span>
+</div>
+<h2 id="headline"></h2>
+<p class="note" id="swing"></p>
+<p class="note">Each line is one quarter's stock price around its report, shown as % difference from the
+closing price on the day before results came out. The blue line is the middle (median) of all quarters.</p>
+<div id="overlay"></div>
+<p class="hint">Touch or hover a line to see that quarter. Click a bar below to pin it.</p>
+<h2>How the stock moved on the day results came out</h2>
+<p class="note">Change from the previous day's close to the report day's close.</p>
+<div id="bars"></div>
+<h2>Quarter by quarter</h2>
+<div class="tablewrap"><table id="table"></table></div>
+<p class="note">"Before" columns: how much the price changed over that stretch leading into the report.
+"After" columns: how much it changed from the report-day close. Weeks are trading weeks (5 market days).</p>
+<footer id="foot"></footer>
+<div class="tooltip" id="tip"></div>
+</main>
+<script>
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const fmt = (v, d=1) => v==null ? "–" : (v>=0?"+":"−") + Math.abs(v).toFixed(d) + "%";
+const median = a => { const s=a.filter(v=>v!=null).sort((x,y)=>x-y), n=s.length;
+  return n ? (n%2 ? s[n>>1] : (s[n/2-1]+s[n/2])/2) : null; };
+
+Promise.resolve({"ticker": "TPR", "name": "Tapestry, Inc.", "updated": "Aug 7, 2026", "lastClose": 162.0, "lastDate": "Aug 6, 2026", "nextReport": "Thursday, August 13, 2026", "nextWhen": "before the market opens", "median": [[-20, 1.677], [-19, -0.005], [-18, 2.088], [-17, 2.14], [-16, 2.57], [-15, 1.876], [-14, 3.312], [-13, 1.902], [-12, 1.018], [-11, 0.866], [-10, 0.01], [-9, 0.27], [-8, -1.515], [-7, -1.814], [-6, -2.116], [-5, -1.24], [-4, -1.458], [-3, -1.596], [-2, -2.075], [-1, 0.0], [0, 3.416], [1, 3.579], [2, 6.491], [3, 7.202], [4, 8.935], [5, 7.452], [6, 9.158], [7, 8.033], [8, 7.352], [9, 6.531], [10, 5.889]], "events": [{"label": "May '24", "reaction": 3.57, "points": [[-20, 7.286], [-19, 5.541], [-18, 4.746], [-17, 4.823], [-16, 3.874], [-15, 3.899], [-14, 4.207], [-13, 3.412], [-12, 1.18], [-11, 2.694], [-10, 1.052], [-9, 2.745], [-8, 5.131], [-7, 2.411], [-6, 1.308], [-5, -0.487], [-4, 0.667], [-3, 1.283], [-2, 0.026], [-1, 0.0], [0, 3.566], [1, 2.796], [2, 6.08], [3, 8.03], [4, 9.466], [5, 9.082], [6, 8.568], [7, 8.928], [8, 8.645], [9, 6.414], [10, 6.106]], "runup20": -5.94, "runup10": -2.62, "runup5": -1.29, "drift5": 5.33, "drift10": 2.45}, {"label": "Aug '24", "reaction": 3.27, "points": [[-20, 9.826], [-19, 8.614], [-18, 10.09], [-17, 8.43], [-16, 4.953], [-15, 4.452], [-14, 7.534], [-13, 6.322], [-12, 4.768], [-11, 5.611], [-10, 3.135], [-9, 0.448], [-8, -2.898], [-7, -2.318], [-6, -4.399], [-5, -0.079], [-4, 0.711], [-3, -1.238], [-2, 0.711], [-1, 0.0], [0, 3.267], [1, 6.428], [2, 6.902], [3, 6.375], [4, 8.404], [5, 5.822], [6, 9.747], [7, 7.139], [8, 6.059], [9, 7.218], [10, 6.744]], "runup20": -10.87, "runup10": -5.31, "runup5": 4.6, "drift5": 2.47, "drift10": 3.37}, {"label": "Feb '25", "reaction": 12.02, "points": [[-20, -8.204], [-19, -6.609], [-18, -8.49], [-17, -9.035], [-16, -7.795], [-15, -7.809], [-14, -5.11], [-13, -2.712], [-12, 0.913], [-11, -0.055], [-10, 0.327], [-9, 1.731], [-8, -1.186], [-7, 0.559], [-6, 1.376], [-5, 3.448], [-4, -0.6], [-3, 0.204], [-2, -0.572], [-1, 0.0], [0, 12.02], [1, 9.539], [2, 7.727], [3, 10.875], [4, 16.013], [5, 18.07], [6, 19.515], [7, 21.286], [8, 21.573], [9, 17.907], [10, 15.277]], "runup20": 8.45, "runup10": 0.05, "runup5": -1.36, "drift5": 5.4, "drift10": 2.91}, {"label": "May '25", "reaction": 3.73, "points": [[-20, -9.993], [-19, -14.488], [-18, -15.184], [-17, -14.676], [-16, -14.462], [-15, -15.893], [-14, -14.863], [-13, -15.478], [-12, -13.15], [-11, -10.93], [-10, -8.629], [-9, -7.853], [-8, -7.344], [-7, -6.301], [-6, -5.485], [-5, -5.699], [-4, -2.662], [-3, -1.953], [-2, -1.926], [-1, 0.0], [0, 3.732], [1, 4.361], [2, 10.582], [3, 11.839], [4, 11.385], [5, 11.358], [6, 10.796], [7, 10.194], [8, 10.395], [9, 6.649], [10, 5.672]], "runup20": 23.35, "runup10": 12.27, "runup5": 5.8, "drift5": 7.35, "drift10": 1.87}, {"label": "Aug '25", "reaction": -15.71, "points": [[-20, -10.015], [-19, -8.905], [-18, -6.271], [-17, -6.412], [-16, -3.84], [-15, -4.492], [-14, -4.571], [-13, -2.739], [-12, -5.399], [-11, -4.695], [-10, -4.845], [-9, -6.36], [-8, -1.445], [-7, -1.797], [-6, -1.216], [-5, -4.448], [-4, -3.911], [-3, -4.906], [-2, -2.352], [-1, 0.0], [0, -15.714], [1, -11.266], [2, -11.997], [3, -13.75], [4, -12.913], [5, -13.336], [6, -12.217], [7, -13.265], [8, -11.301], [9, -11.054], [10, -9.619]], "runup20": 12.77, "runup10": 4.93, "runup5": 1.23, "drift5": 2.82, "drift10": 7.23}, {"label": "Nov '25", "reaction": -9.61, "points": [[-20, 3.815], [-19, -0.997], [-18, 4.345], [-17, 6.358], [-16, 6.751], [-15, 6.587], [-14, 6.87], [-13, 6.431], [-12, 7.163], [-11, 5.507], [-10, 5.114], [-9, 4.94], [-8, 5.178], [-7, 3.476], [-6, 3.303], [-5, 1.885], [-4, 0.467], [-3, -2.726], [-2, -2.671], [-1, 0.0], [0, -9.606], [1, -5.15], [2, -2.955], [3, -6.651], [4, -4.876], [5, -7.822], [6, -7.227], [7, -6.925], [8, -5.516], [9, -4.483], [10, -6.523]], "runup20": -6.42, "runup10": -5.22, "runup5": -3.2, "drift5": 1.97, "drift10": 3.41}, {"label": "Feb '26", "reaction": 10.21, "points": [[-20, 0.808], [-19, 2.771], [-18, 3.41], [-17, 2.909], [-16, 3.433], [-15, 2.502], [-14, 2.417], [-13, 0.593], [-12, -0.585], [-11, 1.786], [-10, -0.308], [-9, 0.092], [-8, -2.879], [-7, -1.832], [-6, -3.017], [-5, -1.994], [-4, -2.317], [-3, -0.192], [-2, -2.224], [-1, 0.0], [0, 10.214], [1, 17.072], [2, 19.035], [3, 17.903], [4, 19.05], [5, 17.503], [6, 18.381], [7, 18.419], [8, 19.304], [9, 17.226], [10, 20.913]], "runup20": -2.45, "runup10": -1.75, "runup5": 3.11, "drift5": 6.61, "drift10": 9.71}, {"label": "May '26", "reaction": -12.3, "points": [[-20, 2.547], [-19, 0.988], [-18, 0.766], [-17, 1.371], [-16, 1.707], [-15, 1.25], [-14, 4.717], [-13, 3.212], [-12, 1.122], [-11, -1.787], [-10, -1.599], [-9, -1.975], [-8, -1.586], [-7, -3.353], [-6, -4.858], [-5, -2.547], [-4, -4.092], [-3, -6.108], [-2, -4.999], [-1, 0.0], [0, -12.303], [1, -10.314], [2, -10.408], [3, -11.49], [4, -10.838], [5, -12.491], [6, -13.109], [7, -11.866], [8, -11.557], [9, -8.762], [10, -6.531]], "runup20": -1.16, "runup10": 1.82, "runup5": 5.11, "drift5": -0.21, "drift10": 6.58}]}).then(D => {
+  const tip = d3.select("#tip");
+  const showTip = (ev, html) => tip.html(html).style("opacity",1)
+      .style("left", Math.min(ev.clientX+14, innerWidth-170)+"px").style("top", (ev.clientY+14)+"px");
+  const hideTip = () => tip.style("opacity",0);
+
+  // ---- header
+  d3.select("#title").text(`${D.name} (${D.ticker})`);
+  d3.select("#sub").text(`Last close $${D.lastClose.toFixed(2)} on ${D.lastDate}`);
+  if (D.nextReport) { d3.select("#next").attr("hidden", null);
+    d3.select("#next-date").text(D.nextReport); d3.select("#next-when").text(D.nextWhen); }
+  const n = D.events.length, downs = D.events.filter(e=>e.reaction<0).length;
+  const medMove = median(D.events.map(e=>e.reaction));
+  d3.select("#headline").text(downs*2 > n
+    ? `${D.ticker} has fallen on report day in ${downs} of the last ${n} quarters (median move ${fmt(medMove)})`
+    : `${D.ticker} has risen on report day in ${n-downs} of the last ${n} quarters (median move ${fmt(medMove)})`);
+  const medAbs = median(D.events.map(e=>Math.abs(e.reaction)));
+  d3.select("#swing").html(`<strong>Report-day moves are often large:</strong> typically about ${medAbs.toFixed(0)}% up or down.`);
+  d3.select("#foot").text(`Prices from Yahoo Finance (dividend-adjusted closes), ${n} most recent reported quarters. Generated ${D.updated}. Informational only.`);
+
+  // ---- shared highlight state
+  let pinned = null;   // event label or null
+  const setHl = label => {
+    const active = label ?? pinned;
+    d3.selectAll("path.qline").attr("stroke", d => d.label===active ? css("--neg") : css("--gray"))
+      .attr("stroke-width", d => d.label===active ? 2.4 : 1.3)
+      .each(function(d){ if (d.label===active) this.parentNode.appendChild(this); });
+    d3.selectAll("text.qlabel").attr("fill", d => d.label===active ? css("--neg") : css("--muted"))
+      .attr("font-weight", d => d.label===active ? 700 : 400);
+    d3.selectAll("rect.qbar").attr("opacity", d => active==null || d.label===active ? 1 : .35);
+    d3.selectAll("#table tbody tr").classed("hl", function(){ return this.dataset.label===active; });
+    d3.select("path.median").raise();
+  };
+
+  // ---- overlay chart
+  {
+    const W=720, H=400, ml=46, mr=84, mt=16, mb=40, pw=W-ml-mr, ph=H-mt-mb;
+    const svg = d3.select("#overlay").append("svg").attr("viewBox",`0 0 ${W} ${H}`);
+    const allY = D.events.flatMap(e=>e.points.map(p=>p[1]));
+    const x = d3.scaleLinear().domain([-20,10]).range([ml, ml+pw]);
+    const y = d3.scaleLinear().domain([Math.min(...allY,0)-1.5, Math.max(...allY,0)+1.5]).nice().range([mt+ph, mt]);
+
+    const ticks = y.ticks(6);
+    svg.selectAll("line.grid").data(ticks).join("line")
+      .attr("x1",ml).attr("x2",ml+pw).attr("y1",d=>y(d)).attr("y2",d=>y(d))
+      .attr("stroke",d=>d===0?"#d8dde2":css("--grid"));
+    svg.selectAll("text.ytick").data(ticks).join("text")
+      .attr("x",ml-8).attr("y",d=>y(d)+4).attr("text-anchor","end").attr("font-size",12)
+      .attr("fill",css("--muted")).text(d=>d===0?"0%":fmt(d,0));
+    svg.append("line").attr("x1",x(-.5)).attr("x2",x(-.5)).attr("y1",mt).attr("y2",mt+ph)
+      .attr("stroke",css("--muted")).attr("stroke-dasharray","4 4");
+    const xlabs = [[-20,"4 wks before"],[-10,"2 wks"],[-5,"1 wk"],[-.5,"results out"],[5,"1 wk after"],[10,"2 wks"]];
+    svg.selectAll("text.xtick").data(xlabs).join("text")
+      .attr("x",d=>x(d[0])).attr("y",mt+ph+18).attr("text-anchor","middle").attr("font-size",12)
+      .attr("fill",d=>d[1]==="results out"?css("--ink"):css("--muted"))
+      .attr("font-weight",d=>d[1]==="results out"?600:400).text(d=>d[1]);
+
+    const line = d3.line().x(p=>x(p[0])).y(p=>y(p[1]));
+    const g = svg.append("g");
+    g.selectAll("path.qline").data(D.events).join("path").attr("class","qline")
+      .attr("d",d=>line(d.points)).attr("fill","none").attr("stroke",css("--gray")).attr("stroke-width",1.3);
+    svg.append("path").datum(D.median).attr("class","median").attr("d",line)
+      .attr("fill","none").attr("stroke",css("--accent")).attr("stroke-width",2.6);
+
+    // collision-avoided end labels
+    const ends = D.events.map(e=>({label:e.label, x:x(e.points.at(-1)[0]), y:y(e.points.at(-1)[1])}));
+    ends.push({label:"Median", x:x(D.median.at(-1)[0]), y:y(D.median.at(-1)[1]), med:true});
+    ends.sort((a,b)=>a.y-b.y);
+    for (let i=1;i<ends.length;i++) if (ends[i].y-ends[i-1].y<12) ends[i].y=ends[i-1].y+12;
+    svg.selectAll("text.qlabel").data(ends).join("text").attr("class",d=>d.med?"":"qlabel")
+      .attr("x",d=>d.x+6).attr("y",d=>d.y+4).attr("font-size",12)
+      .attr("fill",d=>d.med?css("--accent"):css("--muted")).attr("font-weight",d=>d.med?700:400)
+      .text(d=>d.label);
+
+    // nearest-point hover via delaunay over all quarter points
+    const flat = D.events.flatMap(e=>e.points.map(p=>({label:e.label, off:p[0], val:p[1]})));
+    const del = d3.Delaunay.from(flat, p=>x(p.off), p=>y(p.val));
+    const dot = svg.append("circle").attr("r",4).attr("fill",css("--neg")).attr("opacity",0);
+    svg.on("pointermove", ev => {
+      const [mx,my] = d3.pointer(ev, svg.node());
+      if (mx<ml-10||mx>ml+pw+40||my<mt-10||my>mt+ph+10) return;
+      const p = flat[del.find(mx,my)];
+      setHl(p.label);
+      dot.attr("cx",x(p.off)).attr("cy",y(p.val)).attr("opacity",1);
+      const when = p.off<0 ? `${-p.off} trading day${p.off===-1?"":"s"} before report`
+                 : p.off===0 ? "report day" : `${p.off} trading day${p.off===1?"":"s"} after report`;
+      showTip(ev, `<strong>${p.label} report</strong><br>${when}<br>${fmt(p.val)} vs day before report`);
+    }).on("pointerleave", () => { setHl(null); dot.attr("opacity",0); hideTip(); });
+  }
+
+  // ---- report-day bars
+  {
+    const W=720, H=260, ml=46, mr=12, mt=24, mb=30, pw=W-ml-mr, ph=H-mt-mb;
+    const svg = d3.select("#bars").append("svg").attr("viewBox",`0 0 ${W} ${H}`);
+    const vals = D.events.map(e=>e.reaction);
+    const y = d3.scaleLinear().domain([Math.min(...vals,0)-1, Math.max(...vals,0)+1]).nice().range([mt+ph, mt]);
+    const slot = pw/D.events.length, bw = Math.min(slot*.55, 56);
+    svg.append("line").attr("x1",ml).attr("x2",ml+pw).attr("y1",y(0)).attr("y2",y(0)).attr("stroke","#d8dde2");
+    const cx = i => ml + slot*(i+.5);
+    svg.selectAll("rect.qbar").data(D.events).join("rect").attr("class","qbar")
+      .attr("x",(d,i)=>cx(i)-bw/2).attr("width",bw)
+      .attr("y",d=>Math.min(y(0),y(d.reaction))).attr("height",d=>Math.max(Math.abs(y(d.reaction)-y(0)),1))
+      .attr("rx",2).attr("fill",d=>d.reaction>=0?css("--pos"):css("--neg")).style("cursor","pointer")
+      .on("pointerenter", (ev,d)=>{ setHl(d.label);
+        showTip(ev, `<strong>${d.label} report</strong><br>${fmt(d.reaction)} on report day`); })
+      .on("pointermove", (ev,d)=>showTip(ev, `<strong>${d.label} report</strong><br>${fmt(d.reaction)} on report day`))
+      .on("pointerleave", ()=>{ setHl(null); hideTip(); })
+      .on("click", (ev,d)=>{ pinned = pinned===d.label ? null : d.label; setHl(null); });
+    svg.selectAll("text.val").data(D.events).join("text")
+      .attr("x",(d,i)=>cx(i)).attr("y",d=>d.reaction>=0?y(d.reaction)-6:y(d.reaction)+15)
+      .attr("text-anchor","middle").attr("font-size",12.5).attr("font-weight",600)
+      .attr("fill",d=>d.reaction>=0?css("--pos"):css("--neg")).text(d=>fmt(d.reaction));
+    svg.selectAll("text.blab").data(D.events).join("text")
+      .attr("x",(d,i)=>cx(i)).attr("y",d=>d.reaction>=0?y(0)+15:y(0)-6)
+      .attr("text-anchor","middle").attr("font-size",12).attr("fill",css("--muted")).text(d=>d.label);
+  }
+
+  // ---- table
+  {
+    const cell = v => v==null ? '<td class="na">–</td>' : `<td class="${v<0?"neg":"pos"}">${fmt(v)}</td>`;
+    const head = `<thead><tr><th>Report</th><th>4&nbsp;wks<br>before</th><th>2&nbsp;wks<br>before</th>
+      <th>1&nbsp;wk<br>before</th><th>Report<br>day</th><th>1&nbsp;wk<br>after</th><th>2&nbsp;wks<br>after</th></tr></thead>`;
+    const rows = [...D.events].reverse().map(e =>
+      `<tr data-label="${e.label}"><th>${e.label}</th>${cell(e.runup20)}${cell(e.runup10)}${cell(e.runup5)}${cell(e.reaction)}${cell(e.drift5)}${cell(e.drift10)}</tr>`).join("");
+    const m = k => median(D.events.map(e=>e[k]));
+    const medRow = `<tr class="med"><th>Median</th>${cell(m("runup20"))}${cell(m("runup10"))}${cell(m("runup5"))}${cell(m("reaction"))}${cell(m("drift5"))}${cell(m("drift10"))}</tr>`;
+    d3.select("#table").html(head + "<tbody>" + rows + medRow + "</tbody>");
+  }
+});
+</script>
+</body></html>
