@@ -33,6 +33,7 @@
   .rpt { background:var(--band); border-left:2px solid var(--band-edge); border-right:2px solid var(--band-edge); }
   thead th.rpt { color:var(--accent); }
   tr.med { border-top:2px solid #d8dde2; } tr.med th, tr.med td { font-weight:700; }
+  tr.nextrow th, tr.nextrow td { background:var(--band); border-bottom:2px solid var(--band-edge); }
   tbody tr.hl { background:#fff8e6; } tbody tr.hl td.rpt { background:#f6efd8; }
   .tablewrap { overflow-x:auto; }
   footer { margin-top:40px; color:var(--muted); font-size:13px; border-top:1px solid var(--grid); padding-top:14px; }
@@ -57,7 +58,14 @@ is fine, click again to remove. Hover anything for details.</p>
 <h2>How the stock moved on the day results came out</h2>
 <p class="note">Change from the previous day's close to the report day's close.</p>
 <div id="bars"></div>
-<h2 id="scatter-h">Beating expectations vs. what the price did</h2>
+<h2 id="dollar-h">Profit in dollars vs. the price reaction</h2>
+<p class="note">Each quarter sits at the height of its report-day price move. The hollow circle
+&#9675; is the profit per share analysts expected; the filled dot &#9679; is what actually came out.
+The dashed line marks what analysts expect at the next report. One caution: for many retailers the
+December (holiday) quarter is naturally the year's biggest, so dollar profits are best compared with
+the same quarter a year earlier.</p>
+<div id="dollar"></div>
+<h2 id="scatter-h">Beating expectations (in %) vs. what the price did</h2>
 <p class="note">Each dot is one report: how far profits came in above or below the analyst estimate
 (left–right), and what the share price did on report day (up–down). Dots in the lower-right corner
 beat expectations and the price <em>still</em> fell.</p>
@@ -235,6 +243,63 @@ Promise.resolve(__DATA__).then(D => {
       .attr("text-anchor","middle").attr("font-size",12).attr("fill",css("--muted")).text(d=>d.label);
   }
 
+  // ---- dollar profit vs reaction (dumbbell)
+  if (rated.length) {
+    const W=720, H=380, ml=52, mr=24, mt=26, mb=52, pw=W-ml-mr, ph=H-mt-mb;
+    const svg = d3.select("#dollar").append("svg").attr("viewBox",`0 0 ${W} ${H}`);
+    const xsAll = rated.flatMap(e=>[e.epsEst,e.epsAct]).concat(D.nextEps!=null?[D.nextEps]:[]);
+    const ys = rated.map(e=>e.reaction);
+    const x = d3.scaleLinear().domain([Math.min(...xsAll)-.15, Math.max(...xsAll)+.15]).nice().range([ml, ml+pw]);
+    const y = d3.scaleLinear().domain([Math.min(...ys,0)-2, Math.max(...ys,0)+2]).nice().range([mt+ph, mt]);
+
+    y.ticks(6).forEach(v => {
+      svg.append("line").attr("x1",ml).attr("x2",ml+pw).attr("y1",y(v)).attr("y2",y(v))
+        .attr("stroke",v===0?"#b9c2cb":css("--grid"));
+      svg.append("text").attr("x",ml-8).attr("y",y(v)+4).attr("text-anchor","end")
+        .attr("font-size",12).attr("fill",css("--muted")).text(v===0?"0%":fmt(v,0));
+    });
+    x.ticks(6).forEach(v => {
+      svg.append("line").attr("x1",x(v)).attr("x2",x(v)).attr("y1",mt).attr("y2",mt+ph).attr("stroke",css("--grid"));
+      svg.append("text").attr("x",x(v)).attr("y",mt+ph+18).attr("text-anchor","middle")
+        .attr("font-size",12).attr("fill",css("--muted")).text(`$${v.toFixed(2)}`);
+    });
+    svg.append("text").attr("x",ml+pw/2).attr("y",H-6).attr("text-anchor","middle")
+      .attr("font-size",12.5).attr("fill",css("--ink")).text("Profit per share (dollars)");
+    svg.append("text").attr("transform",`translate(14,${mt+ph/2}) rotate(-90)`).attr("text-anchor","middle")
+      .attr("font-size",12.5).attr("fill",css("--ink")).text("Share-price move on report day");
+
+    if (D.nextEps != null) {
+      svg.append("line").attr("x1",x(D.nextEps)).attr("x2",x(D.nextEps)).attr("y1",mt).attr("y2",mt+ph)
+        .attr("stroke",css("--accent")).attr("stroke-dasharray","5 4").attr("stroke-width",1.5);
+      svg.append("text").attr("x",x(D.nextEps)).attr("y",mt-8).attr("text-anchor","middle")
+        .attr("font-size",11.5).attr("font-weight",700).attr("fill",css("--accent"))
+        .text(`next report: $${D.nextEps.toFixed(2)} expected`);
+    }
+
+    const dTip = d => `<strong>${d.label} report</strong><br>Expected $${d.epsEst.toFixed(2)} · actual $${d.epsAct.toFixed(2)}<br>${fmt(d.reaction)} on report day`;
+    const gg = svg.selectAll("g.db").data(rated).join("g").attr("class","db").style("cursor","pointer")
+      .on("pointerenter",(ev,d)=>{ setHover(d.label); showTip(ev, dTip(d)); })
+      .on("pointermove",(ev,d)=>showTip(ev, dTip(d)))
+      .on("pointerleave",()=>{ setHover(null); hideTip(); })
+      .on("click",(ev,d)=>toggle(d.label));
+    gg.append("line").attr("x1",d=>x(d.epsEst)).attr("x2",d=>x(d.epsAct))
+      .attr("y1",d=>y(d.reaction)).attr("y2",d=>y(d.reaction)).attr("stroke","#8a94a0").attr("stroke-width",1.5);
+    gg.append("circle").attr("cx",d=>x(d.epsEst)).attr("cy",d=>y(d.reaction)).attr("r",4.5)
+      .attr("fill","#fff").attr("stroke","#8a94a0").attr("stroke-width",1.5);
+    gg.append("circle").attr("class","qdot").attr("cx",d=>x(d.epsAct)).attr("cy",d=>y(d.reaction)).attr("r",6)
+      .attr("fill",d=>d.reaction>=0?css("--pos"):css("--neg")).attr("stroke","#fff").attr("stroke-width",1.5);
+
+    const labs = rated.map(d=>({d, x:Math.max(x(d.epsEst),x(d.epsAct))+9, y:y(d.reaction)+4})).sort((a,b)=>a.y-b.y||a.x-b.x);
+    for (let i=0;i<labs.length;i++)
+      for (let j=0;j<i;j++)
+        if (Math.abs(labs[i].x-labs[j].x)<52 && Math.abs(labs[i].y-labs[j].y)<13) labs[i].y = labs[j].y+13;
+    svg.selectAll("text.dlab").data(labs).join("text")
+      .attr("x",l=>l.x).attr("y",l=>l.y).attr("font-size",11.5).attr("fill",css("--muted"))
+      .text(l=>l.d.label);
+  } else {
+    d3.select("#dollar-h").remove(); d3.select("#dollar").remove();
+  }
+
   // ---- surprise vs reaction scatter
   if (rated.length) {
     const W=720, H=380, ml=52, mr=24, mt=18, mb=52, pw=W-ml-mr, ph=H-mt-mb;
@@ -302,7 +367,12 @@ Promise.resolve(__DATA__).then(D => {
     const head = `<thead><tr><th>Report</th><th>Analysts<br>expected</th><th>Actual<br>profit</th>
       <th>2&nbsp;wks<br>before</th><th>1&nbsp;wk<br>before</th><th>1&nbsp;day<br>before</th>
       <th class="rpt">Report<br>day</th><th>1&nbsp;day<br>after</th><th>1&nbsp;wk<br>after</th><th>2&nbsp;wks<br>after</th></tr></thead>`;
-    const rows = [...D.events].reverse().map(e =>
+    const nextRow = (D.nextEps!=null && D.nextLabel)
+      ? `<tr class="nextrow"><th>${D.nextLabel} · next</th><td><strong>$${D.nextEps.toFixed(2)}</strong></td>`
+        + `<td class="na">due ${D.nextShort}</td>` + '<td class="na">–</td>'.repeat(3)
+        + '<td class="na rpt">–</td>' + '<td class="na">–</td>'.repeat(3) + `</tr>`
+      : "";
+    const rows = nextRow + [...D.events].reverse().map(e =>
       `<tr data-label="${e.label}"><th>${e.label}</th>${eCell(e)}${aCell(e)}${cell(e.runup10)}${cell(e.runup5)}${cell(e.runup1)}${cell(e.reaction,"rpt")}${cell(e.drift1)}${cell(e.drift5)}${cell(e.drift10)}</tr>`).join("");
     const m = k => median(D.events.map(e=>e[k]));
     const ms = m("surprise");

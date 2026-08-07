@@ -33,6 +33,7 @@
   .rpt { background:var(--band); border-left:2px solid var(--band-edge); border-right:2px solid var(--band-edge); }
   thead th.rpt { color:var(--accent); }
   tr.med { border-top:2px solid #d8dde2; } tr.med th, tr.med td { font-weight:700; }
+  tr.nextrow th, tr.nextrow td { background:var(--band); border-bottom:2px solid var(--band-edge); }
   tbody tr.hl { background:#fff8e6; } tbody tr.hl td.rpt { background:#f6efd8; }
   .tablewrap { overflow-x:auto; }
   footer { margin-top:40px; color:var(--muted); font-size:13px; border-top:1px solid var(--grid); padding-top:14px; }
@@ -57,7 +58,14 @@ is fine, click again to remove. Hover anything for details.</p>
 <h2>How the stock moved on the day results came out</h2>
 <p class="note">Change from the previous day's close to the report day's close.</p>
 <div id="bars"></div>
-<h2 id="scatter-h">Beating expectations vs. what the price did</h2>
+<h2 id="dollar-h">Profit in dollars vs. the price reaction</h2>
+<p class="note">Each quarter sits at the height of its report-day price move. The hollow circle
+&#9675; is the profit per share analysts expected; the filled dot &#9679; is what actually came out.
+The dashed line marks what analysts expect at the next report. One caution: for many retailers the
+December (holiday) quarter is naturally the year's biggest, so dollar profits are best compared with
+the same quarter a year earlier.</p>
+<div id="dollar"></div>
+<h2 id="scatter-h">Beating expectations (in %) vs. what the price did</h2>
 <p class="note">Each dot is one report: how far profits came in above or below the analyst estimate
 (left–right), and what the share price did on report day (up–down). Dots in the lower-right corner
 beat expectations and the price <em>still</em> fell.</p>
@@ -77,7 +85,7 @@ const fmt = (v, d=1) => v==null ? "–" : (v>=0?"+":"−") + Math.abs(v).toFixed
 const median = a => { const s=a.filter(v=>v!=null).sort((x,y)=>x-y), n=s.length;
   return n ? (n%2 ? s[n>>1] : (s[n/2-1]+s[n/2])/2) : null; };
 
-Promise.resolve({"ticker": "TPR", "name": "Tapestry, Inc.", "updated": "Aug 7, 2026", "lastClose": 162.0, "lastDate": "Aug 6, 2026", "nextReport": "Thursday, August 13, 2026", "nextWhen": "before the market opens", "nextEps": 1.28, "median": [[-20, 1.677], [-19, -0.005], [-18, 2.088], [-17, 2.14], [-16, 2.57], [-15, 1.876], [-14, 3.312], [-13, 1.902], [-12, 1.018], [-11, 0.866], [-10, 0.01], [-9, 0.27], [-8, -1.515], [-7, -1.814], [-6, -2.116], [-5, -1.24], [-4, -1.458], [-3, -1.596], [-2, -2.075], [-1, 0.0], [0, 3.416], [1, 3.579], [2, 6.491], [3, 7.202], [4, 8.935], [5, 7.452], [6, 9.158], [7, 8.033], [8, 7.352], [9, 6.531], [10, 5.889]], "events": [{"label": "May '24", "reaction": 3.57, "epsEst": 0.68, "epsAct": 0.81, "surprise": 19.1, "points": [[-20, 7.286], [-19, 5.541], [-18, 4.746], [-17, 4.823], [-16, 3.874], [-15, 3.899], [-14, 4.207], [-13, 3.412], [-12, 1.18], [-11, 2.694], [-10, 1.052], [-9, 2.745], [-8, 5.131], [-7, 2.411], [-6, 1.308], [-5, -0.487], [-4, 0.667], [-3, 1.283], [-2, 0.026], [-1, 0.0], [0, 3.566], [1, 2.796], [2, 6.08], [3, 8.03], [4, 9.466], [5, 9.082], [6, 8.568], [7, 8.928], [8, 8.645], [9, 6.414], [10, 6.106]], "runup20": -5.94, "runup10": -2.62, "runup5": -1.29, "runup1": -0.03, "drift1": -0.74, "drift5": 5.33, "drift10": 2.45}, {"label": "Aug '24", "reaction": 3.27, "epsEst": 0.88, "epsAct": 0.92, "surprise": 4.5, "points": [[-20, 9.826], [-19, 8.614], [-18, 10.09], [-17, 8.43], [-16, 4.953], [-15, 4.452], [-14, 7.534], [-13, 6.322], [-12, 4.768], [-11, 5.611], [-10, 3.135], [-9, 0.448], [-8, -2.898], [-7, -2.318], [-6, -4.399], [-5, -0.079], [-4, 0.711], [-3, -1.238], [-2, 0.711], [-1, 0.0], [0, 3.267], [1, 6.428], [2, 6.902], [3, 6.375], [4, 8.404], [5, 5.822], [6, 9.747], [7, 7.139], [8, 6.059], [9, 7.218], [10, 6.744]], "runup20": -10.87, "runup10": -5.31, "runup5": 4.6, "runup1": -0.71, "drift1": 3.06, "drift5": 2.47, "drift10": 3.37}, {"label": "Feb '25", "reaction": 12.02, "epsEst": 1.75, "epsAct": 2.0, "surprise": 14.3, "points": [[-20, -8.204], [-19, -6.609], [-18, -8.49], [-17, -9.035], [-16, -7.795], [-15, -7.809], [-14, -5.11], [-13, -2.712], [-12, 0.913], [-11, -0.055], [-10, 0.327], [-9, 1.731], [-8, -1.186], [-7, 0.559], [-6, 1.376], [-5, 3.448], [-4, -0.6], [-3, 0.204], [-2, -0.572], [-1, 0.0], [0, 12.02], [1, 9.539], [2, 7.727], [3, 10.875], [4, 16.013], [5, 18.07], [6, 19.515], [7, 21.286], [8, 21.573], [9, 17.907], [10, 15.277]], "runup20": 8.45, "runup10": 0.05, "runup5": -1.36, "runup1": 0.58, "drift1": -2.21, "drift5": 5.4, "drift10": 2.91}, {"label": "May '25", "reaction": 3.73, "epsEst": 0.88, "epsAct": 1.03, "surprise": 17.0, "points": [[-20, -9.993], [-19, -14.488], [-18, -15.184], [-17, -14.676], [-16, -14.462], [-15, -15.893], [-14, -14.863], [-13, -15.478], [-12, -13.151], [-11, -10.93], [-10, -8.629], [-9, -7.853], [-8, -7.344], [-7, -6.301], [-6, -5.485], [-5, -5.699], [-4, -2.662], [-3, -1.953], [-2, -1.926], [-1, 0.0], [0, 3.732], [1, 4.361], [2, 10.582], [3, 11.839], [4, 11.385], [5, 11.358], [6, 10.796], [7, 10.194], [8, 10.395], [9, 6.649], [10, 5.672]], "runup20": 23.35, "runup10": 12.27, "runup5": 5.8, "runup1": 1.96, "drift1": 0.61, "drift5": 7.35, "drift10": 1.87}, {"label": "Aug '25", "reaction": -15.71, "epsEst": 1.02, "epsAct": 1.04, "surprise": 2.0, "points": [[-20, -10.015], [-19, -8.905], [-18, -6.271], [-17, -6.412], [-16, -3.84], [-15, -4.492], [-14, -4.571], [-13, -2.739], [-12, -5.399], [-11, -4.695], [-10, -4.845], [-9, -6.36], [-8, -1.445], [-7, -1.797], [-6, -1.216], [-5, -4.448], [-4, -3.911], [-3, -4.906], [-2, -2.352], [-1, 0.0], [0, -15.714], [1, -11.266], [2, -11.997], [3, -13.75], [4, -12.913], [5, -13.336], [6, -12.217], [7, -13.265], [8, -11.301], [9, -11.054], [10, -9.619]], "runup20": 12.77, "runup10": 4.93, "runup5": 1.23, "runup1": 2.41, "drift1": 5.28, "drift5": 2.82, "drift10": 7.23}, {"label": "Nov '25", "reaction": -9.61, "epsEst": 1.27, "epsAct": 1.38, "surprise": 8.7, "points": [[-20, 3.815], [-19, -0.997], [-18, 4.345], [-17, 6.358], [-16, 6.751], [-15, 6.587], [-14, 6.87], [-13, 6.431], [-12, 7.163], [-11, 5.507], [-10, 5.114], [-9, 4.94], [-8, 5.178], [-7, 3.476], [-6, 3.303], [-5, 1.885], [-4, 0.467], [-3, -2.726], [-2, -2.671], [-1, 0.0], [0, -9.606], [1, -5.15], [2, -2.955], [3, -6.651], [4, -4.876], [5, -7.822], [6, -7.227], [7, -6.925], [8, -5.516], [9, -4.483], [10, -6.523]], "runup20": -6.42, "runup10": -5.22, "runup5": -3.2, "runup1": 2.74, "drift1": 4.93, "drift5": 1.97, "drift10": 3.41}, {"label": "Feb '26", "reaction": 10.21, "epsEst": 2.23, "epsAct": 2.69, "surprise": 20.6, "points": [[-20, 0.808], [-19, 2.771], [-18, 3.41], [-17, 2.909], [-16, 3.433], [-15, 2.502], [-14, 2.417], [-13, 0.593], [-12, -0.585], [-11, 1.786], [-10, -0.308], [-9, 0.092], [-8, -2.879], [-7, -1.832], [-6, -3.017], [-5, -1.994], [-4, -2.317], [-3, -0.192], [-2, -2.224], [-1, 0.0], [0, 10.214], [1, 17.072], [2, 19.035], [3, 17.903], [4, 19.05], [5, 17.503], [6, 18.381], [7, 18.419], [8, 19.304], [9, 17.226], [10, 20.913]], "runup20": -2.45, "runup10": -1.75, "runup5": 3.11, "runup1": 2.28, "drift1": 6.22, "drift5": 6.61, "drift10": 9.71}, {"label": "May '26", "reaction": -12.3, "epsEst": 1.3, "epsAct": 1.66, "surprise": 27.7, "points": [[-20, 2.547], [-19, 0.988], [-18, 0.766], [-17, 1.371], [-16, 1.707], [-15, 1.25], [-14, 4.717], [-13, 3.212], [-12, 1.122], [-11, -1.787], [-10, -1.599], [-9, -1.975], [-8, -1.586], [-7, -3.353], [-6, -4.858], [-5, -2.547], [-4, -4.092], [-3, -6.108], [-2, -4.999], [-1, 0.0], [0, -12.303], [1, -10.314], [2, -10.408], [3, -11.49], [4, -10.838], [5, -12.491], [6, -13.109], [7, -11.866], [8, -11.557], [9, -8.762], [10, -6.531]], "runup20": -1.16, "runup10": 1.82, "runup5": 5.11, "runup1": 5.26, "drift1": 2.27, "drift5": -0.21, "drift10": 6.58}]}).then(D => {
+Promise.resolve({"ticker": "TPR", "name": "Tapestry, Inc.", "updated": "Aug 7, 2026", "lastClose": 162.0, "lastDate": "Aug 6, 2026", "nextReport": "Thursday, August 13, 2026", "nextWhen": "before the market opens", "nextEps": 1.28, "nextLabel": "Aug '26", "nextShort": "Aug 13", "median": [[-20, 1.677], [-19, -0.005], [-18, 2.088], [-17, 2.14], [-16, 2.57], [-15, 1.876], [-14, 3.312], [-13, 1.902], [-12, 1.018], [-11, 0.866], [-10, 0.01], [-9, 0.27], [-8, -1.515], [-7, -1.814], [-6, -2.116], [-5, -1.24], [-4, -1.458], [-3, -1.596], [-2, -2.075], [-1, 0.0], [0, 3.416], [1, 3.579], [2, 6.491], [3, 7.202], [4, 8.935], [5, 7.452], [6, 9.158], [7, 8.033], [8, 7.352], [9, 6.531], [10, 5.889]], "events": [{"label": "May '24", "reaction": 3.57, "epsEst": 0.68, "epsAct": 0.81, "surprise": 19.1, "points": [[-20, 7.286], [-19, 5.541], [-18, 4.746], [-17, 4.823], [-16, 3.874], [-15, 3.899], [-14, 4.207], [-13, 3.412], [-12, 1.18], [-11, 2.694], [-10, 1.052], [-9, 2.745], [-8, 5.131], [-7, 2.411], [-6, 1.308], [-5, -0.487], [-4, 0.667], [-3, 1.283], [-2, 0.026], [-1, 0.0], [0, 3.566], [1, 2.796], [2, 6.08], [3, 8.03], [4, 9.466], [5, 9.082], [6, 8.568], [7, 8.928], [8, 8.645], [9, 6.414], [10, 6.106]], "runup20": -5.94, "runup10": -2.62, "runup5": -1.29, "runup1": -0.03, "drift1": -0.74, "drift5": 5.33, "drift10": 2.45}, {"label": "Aug '24", "reaction": 3.27, "epsEst": 0.88, "epsAct": 0.92, "surprise": 4.5, "points": [[-20, 9.826], [-19, 8.614], [-18, 10.09], [-17, 8.43], [-16, 4.953], [-15, 4.452], [-14, 7.534], [-13, 6.322], [-12, 4.768], [-11, 5.611], [-10, 3.135], [-9, 0.448], [-8, -2.898], [-7, -2.318], [-6, -4.399], [-5, -0.079], [-4, 0.711], [-3, -1.238], [-2, 0.711], [-1, 0.0], [0, 3.267], [1, 6.428], [2, 6.902], [3, 6.375], [4, 8.404], [5, 5.822], [6, 9.747], [7, 7.139], [8, 6.059], [9, 7.218], [10, 6.744]], "runup20": -10.87, "runup10": -5.31, "runup5": 4.6, "runup1": -0.71, "drift1": 3.06, "drift5": 2.47, "drift10": 3.37}, {"label": "Feb '25", "reaction": 12.02, "epsEst": 1.75, "epsAct": 2.0, "surprise": 14.3, "points": [[-20, -8.204], [-19, -6.609], [-18, -8.49], [-17, -9.035], [-16, -7.795], [-15, -7.809], [-14, -5.11], [-13, -2.712], [-12, 0.913], [-11, -0.055], [-10, 0.327], [-9, 1.731], [-8, -1.186], [-7, 0.559], [-6, 1.376], [-5, 3.448], [-4, -0.6], [-3, 0.204], [-2, -0.572], [-1, 0.0], [0, 12.02], [1, 9.539], [2, 7.727], [3, 10.875], [4, 16.013], [5, 18.07], [6, 19.515], [7, 21.286], [8, 21.573], [9, 17.907], [10, 15.277]], "runup20": 8.45, "runup10": 0.05, "runup5": -1.36, "runup1": 0.58, "drift1": -2.21, "drift5": 5.4, "drift10": 2.91}, {"label": "May '25", "reaction": 3.73, "epsEst": 0.88, "epsAct": 1.03, "surprise": 17.0, "points": [[-20, -9.993], [-19, -14.488], [-18, -15.184], [-17, -14.676], [-16, -14.462], [-15, -15.893], [-14, -14.863], [-13, -15.478], [-12, -13.151], [-11, -10.93], [-10, -8.629], [-9, -7.853], [-8, -7.344], [-7, -6.301], [-6, -5.485], [-5, -5.699], [-4, -2.662], [-3, -1.953], [-2, -1.926], [-1, 0.0], [0, 3.732], [1, 4.361], [2, 10.582], [3, 11.839], [4, 11.385], [5, 11.358], [6, 10.796], [7, 10.194], [8, 10.395], [9, 6.649], [10, 5.672]], "runup20": 23.35, "runup10": 12.27, "runup5": 5.8, "runup1": 1.96, "drift1": 0.61, "drift5": 7.35, "drift10": 1.87}, {"label": "Aug '25", "reaction": -15.71, "epsEst": 1.02, "epsAct": 1.04, "surprise": 2.0, "points": [[-20, -10.015], [-19, -8.905], [-18, -6.271], [-17, -6.412], [-16, -3.84], [-15, -4.492], [-14, -4.571], [-13, -2.739], [-12, -5.399], [-11, -4.695], [-10, -4.845], [-9, -6.36], [-8, -1.445], [-7, -1.797], [-6, -1.216], [-5, -4.448], [-4, -3.911], [-3, -4.906], [-2, -2.352], [-1, 0.0], [0, -15.714], [1, -11.266], [2, -11.997], [3, -13.75], [4, -12.913], [5, -13.336], [6, -12.217], [7, -13.265], [8, -11.301], [9, -11.054], [10, -9.619]], "runup20": 12.77, "runup10": 4.93, "runup5": 1.23, "runup1": 2.41, "drift1": 5.28, "drift5": 2.82, "drift10": 7.23}, {"label": "Nov '25", "reaction": -9.61, "epsEst": 1.27, "epsAct": 1.38, "surprise": 8.7, "points": [[-20, 3.815], [-19, -0.997], [-18, 4.345], [-17, 6.358], [-16, 6.751], [-15, 6.587], [-14, 6.87], [-13, 6.431], [-12, 7.163], [-11, 5.507], [-10, 5.114], [-9, 4.94], [-8, 5.178], [-7, 3.476], [-6, 3.303], [-5, 1.885], [-4, 0.467], [-3, -2.726], [-2, -2.671], [-1, 0.0], [0, -9.606], [1, -5.15], [2, -2.955], [3, -6.651], [4, -4.876], [5, -7.822], [6, -7.227], [7, -6.925], [8, -5.516], [9, -4.483], [10, -6.523]], "runup20": -6.42, "runup10": -5.22, "runup5": -3.2, "runup1": 2.74, "drift1": 4.93, "drift5": 1.97, "drift10": 3.41}, {"label": "Feb '26", "reaction": 10.21, "epsEst": 2.23, "epsAct": 2.69, "surprise": 20.6, "points": [[-20, 0.808], [-19, 2.771], [-18, 3.41], [-17, 2.909], [-16, 3.433], [-15, 2.502], [-14, 2.417], [-13, 0.593], [-12, -0.585], [-11, 1.786], [-10, -0.308], [-9, 0.092], [-8, -2.879], [-7, -1.832], [-6, -3.017], [-5, -1.994], [-4, -2.317], [-3, -0.192], [-2, -2.224], [-1, 0.0], [0, 10.214], [1, 17.072], [2, 19.035], [3, 17.903], [4, 19.05], [5, 17.503], [6, 18.381], [7, 18.419], [8, 19.304], [9, 17.226], [10, 20.913]], "runup20": -2.45, "runup10": -1.75, "runup5": 3.11, "runup1": 2.28, "drift1": 6.22, "drift5": 6.61, "drift10": 9.71}, {"label": "May '26", "reaction": -12.3, "epsEst": 1.3, "epsAct": 1.66, "surprise": 27.7, "points": [[-20, 2.547], [-19, 0.988], [-18, 0.766], [-17, 1.371], [-16, 1.707], [-15, 1.25], [-14, 4.717], [-13, 3.212], [-12, 1.122], [-11, -1.787], [-10, -1.599], [-9, -1.975], [-8, -1.586], [-7, -3.353], [-6, -4.858], [-5, -2.547], [-4, -4.092], [-3, -6.108], [-2, -4.999], [-1, 0.0], [0, -12.303], [1, -10.314], [2, -10.408], [3, -11.49], [4, -10.838], [5, -12.491], [6, -13.109], [7, -11.866], [8, -11.557], [9, -8.762], [10, -6.531]], "runup20": -1.16, "runup10": 1.82, "runup5": 5.11, "runup1": 5.26, "drift1": 2.27, "drift5": -0.21, "drift10": 6.58}]}).then(D => {
   const tip = d3.select("#tip");
   const showTip = (ev, html) => tip.html(html).style("opacity",1)
       .style("left", Math.min(ev.clientX+14, innerWidth-190)+"px").style("top", (ev.clientY+14)+"px");
@@ -235,6 +243,63 @@ Promise.resolve({"ticker": "TPR", "name": "Tapestry, Inc.", "updated": "Aug 7, 2
       .attr("text-anchor","middle").attr("font-size",12).attr("fill",css("--muted")).text(d=>d.label);
   }
 
+  // ---- dollar profit vs reaction (dumbbell)
+  if (rated.length) {
+    const W=720, H=380, ml=52, mr=24, mt=26, mb=52, pw=W-ml-mr, ph=H-mt-mb;
+    const svg = d3.select("#dollar").append("svg").attr("viewBox",`0 0 ${W} ${H}`);
+    const xsAll = rated.flatMap(e=>[e.epsEst,e.epsAct]).concat(D.nextEps!=null?[D.nextEps]:[]);
+    const ys = rated.map(e=>e.reaction);
+    const x = d3.scaleLinear().domain([Math.min(...xsAll)-.15, Math.max(...xsAll)+.15]).nice().range([ml, ml+pw]);
+    const y = d3.scaleLinear().domain([Math.min(...ys,0)-2, Math.max(...ys,0)+2]).nice().range([mt+ph, mt]);
+
+    y.ticks(6).forEach(v => {
+      svg.append("line").attr("x1",ml).attr("x2",ml+pw).attr("y1",y(v)).attr("y2",y(v))
+        .attr("stroke",v===0?"#b9c2cb":css("--grid"));
+      svg.append("text").attr("x",ml-8).attr("y",y(v)+4).attr("text-anchor","end")
+        .attr("font-size",12).attr("fill",css("--muted")).text(v===0?"0%":fmt(v,0));
+    });
+    x.ticks(6).forEach(v => {
+      svg.append("line").attr("x1",x(v)).attr("x2",x(v)).attr("y1",mt).attr("y2",mt+ph).attr("stroke",css("--grid"));
+      svg.append("text").attr("x",x(v)).attr("y",mt+ph+18).attr("text-anchor","middle")
+        .attr("font-size",12).attr("fill",css("--muted")).text(`$${v.toFixed(2)}`);
+    });
+    svg.append("text").attr("x",ml+pw/2).attr("y",H-6).attr("text-anchor","middle")
+      .attr("font-size",12.5).attr("fill",css("--ink")).text("Profit per share (dollars)");
+    svg.append("text").attr("transform",`translate(14,${mt+ph/2}) rotate(-90)`).attr("text-anchor","middle")
+      .attr("font-size",12.5).attr("fill",css("--ink")).text("Share-price move on report day");
+
+    if (D.nextEps != null) {
+      svg.append("line").attr("x1",x(D.nextEps)).attr("x2",x(D.nextEps)).attr("y1",mt).attr("y2",mt+ph)
+        .attr("stroke",css("--accent")).attr("stroke-dasharray","5 4").attr("stroke-width",1.5);
+      svg.append("text").attr("x",x(D.nextEps)).attr("y",mt-8).attr("text-anchor","middle")
+        .attr("font-size",11.5).attr("font-weight",700).attr("fill",css("--accent"))
+        .text(`next report: $${D.nextEps.toFixed(2)} expected`);
+    }
+
+    const dTip = d => `<strong>${d.label} report</strong><br>Expected $${d.epsEst.toFixed(2)} · actual $${d.epsAct.toFixed(2)}<br>${fmt(d.reaction)} on report day`;
+    const gg = svg.selectAll("g.db").data(rated).join("g").attr("class","db").style("cursor","pointer")
+      .on("pointerenter",(ev,d)=>{ setHover(d.label); showTip(ev, dTip(d)); })
+      .on("pointermove",(ev,d)=>showTip(ev, dTip(d)))
+      .on("pointerleave",()=>{ setHover(null); hideTip(); })
+      .on("click",(ev,d)=>toggle(d.label));
+    gg.append("line").attr("x1",d=>x(d.epsEst)).attr("x2",d=>x(d.epsAct))
+      .attr("y1",d=>y(d.reaction)).attr("y2",d=>y(d.reaction)).attr("stroke","#8a94a0").attr("stroke-width",1.5);
+    gg.append("circle").attr("cx",d=>x(d.epsEst)).attr("cy",d=>y(d.reaction)).attr("r",4.5)
+      .attr("fill","#fff").attr("stroke","#8a94a0").attr("stroke-width",1.5);
+    gg.append("circle").attr("class","qdot").attr("cx",d=>x(d.epsAct)).attr("cy",d=>y(d.reaction)).attr("r",6)
+      .attr("fill",d=>d.reaction>=0?css("--pos"):css("--neg")).attr("stroke","#fff").attr("stroke-width",1.5);
+
+    const labs = rated.map(d=>({d, x:Math.max(x(d.epsEst),x(d.epsAct))+9, y:y(d.reaction)+4})).sort((a,b)=>a.y-b.y||a.x-b.x);
+    for (let i=0;i<labs.length;i++)
+      for (let j=0;j<i;j++)
+        if (Math.abs(labs[i].x-labs[j].x)<52 && Math.abs(labs[i].y-labs[j].y)<13) labs[i].y = labs[j].y+13;
+    svg.selectAll("text.dlab").data(labs).join("text")
+      .attr("x",l=>l.x).attr("y",l=>l.y).attr("font-size",11.5).attr("fill",css("--muted"))
+      .text(l=>l.d.label);
+  } else {
+    d3.select("#dollar-h").remove(); d3.select("#dollar").remove();
+  }
+
   // ---- surprise vs reaction scatter
   if (rated.length) {
     const W=720, H=380, ml=52, mr=24, mt=18, mb=52, pw=W-ml-mr, ph=H-mt-mb;
@@ -302,7 +367,12 @@ Promise.resolve({"ticker": "TPR", "name": "Tapestry, Inc.", "updated": "Aug 7, 2
     const head = `<thead><tr><th>Report</th><th>Analysts<br>expected</th><th>Actual<br>profit</th>
       <th>2&nbsp;wks<br>before</th><th>1&nbsp;wk<br>before</th><th>1&nbsp;day<br>before</th>
       <th class="rpt">Report<br>day</th><th>1&nbsp;day<br>after</th><th>1&nbsp;wk<br>after</th><th>2&nbsp;wks<br>after</th></tr></thead>`;
-    const rows = [...D.events].reverse().map(e =>
+    const nextRow = (D.nextEps!=null && D.nextLabel)
+      ? `<tr class="nextrow"><th>${D.nextLabel} · next</th><td><strong>$${D.nextEps.toFixed(2)}</strong></td>`
+        + `<td class="na">due ${D.nextShort}</td>` + '<td class="na">–</td>'.repeat(3)
+        + '<td class="na rpt">–</td>' + '<td class="na">–</td>'.repeat(3) + `</tr>`
+      : "";
+    const rows = nextRow + [...D.events].reverse().map(e =>
       `<tr data-label="${e.label}"><th>${e.label}</th>${eCell(e)}${aCell(e)}${cell(e.runup10)}${cell(e.runup5)}${cell(e.runup1)}${cell(e.reaction,"rpt")}${cell(e.drift1)}${cell(e.drift5)}${cell(e.drift10)}</tr>`).join("");
     const m = k => median(D.events.map(e=>e[k]));
     const ms = m("surprise");

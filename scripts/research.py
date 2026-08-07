@@ -136,6 +136,8 @@ def page_data(ticker, name, events, next_event, next_eps, hist, today):
         "nextWhen": ("before the market opens" if next_event.hour < 12 else "after the market closes")
                     if next_event is not None else None,
         "nextEps": round(next_eps, 2) if next_eps is not None else None,
+        "nextLabel": next_event.strftime("%b '%y") if next_event is not None else None,
+        "nextShort": next_event.strftime("%b %-d") if next_event is not None else None,
         "median": med,
         "events": [{
             "label": e["label"],
