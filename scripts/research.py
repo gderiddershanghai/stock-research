@@ -37,12 +37,14 @@ def fetch(ticker):
         sys.exit(f"No earnings dates found for {ticker}")
     ed = ed.sort_index()
     now = pd.Timestamp.now(tz=ed.index.tz)
-    past = ed[(ed.index < now) & ed["Reported EPS"].notna()]
+    past = ed[(ed.index < now) & ed["Reported EPS"].notna()].iloc[-MAX_EVENTS:]
     future = ed[ed.index > now]
-    events = list(past.index[-MAX_EVENTS:])
     next_event = future.index[0] if not future.empty else None
+    next_eps = None
+    if next_event is not None and pd.notna(future["EPS Estimate"].iloc[0]):
+        next_eps = float(future["EPS Estimate"].iloc[0])
 
-    start = (events[0] - timedelta(days=60)).date()
+    start = (past.index[0] - timedelta(days=60)).date()
     hist = t.history(start=str(start), auto_adjust=True)
     if hist.empty:
         sys.exit(f"No price history for {ticker}")
@@ -53,7 +55,7 @@ def fetch(ticker):
         name = t.history_metadata.get("shortName") or t.info.get("shortName") or ticker
     except Exception:
         pass
-    return events, next_event, hist, name
+    return past, next_event, next_eps, hist, name
 
 
 def reaction_day_index(hist, announced):
@@ -65,10 +67,13 @@ def reaction_day_index(hist, announced):
     return pos if pos < len(hist) else None
 
 
-def build_events(hist, event_dates):
+def build_events(hist, past):
     closes = hist["Close"]
     events = []
-    for ann in event_dates:
+    for ann, row in past.iterrows():
+        est = None if pd.isna(row["EPS Estimate"]) else float(row["EPS Estimate"])
+        act = None if pd.isna(row["Reported EPS"]) else float(row["Reported EPS"])
+        surprise = (act - est) / abs(est) * 100 if est not in (None, 0) and act is not None else None
         i0 = reaction_day_index(hist, ann)
         if i0 is None or i0 - PRE_DAYS - 1 < 0:
             continue
@@ -84,6 +89,7 @@ def build_events(hist, event_dates):
             "label": ann.strftime("%b '%y"),
             "points": pts,
             "reaction": day0,
+            "eps_est": est, "eps_act": act, "surprise": surprise,
             "runup_20": (ref / closes.iloc[i0 - 1 - PRE_DAYS] - 1) * 100,
             "runup_10": (ref / closes.iloc[i0 - 1 - 10] - 1) * 100,
             "runup_5": (ref / closes.iloc[i0 - 1 - 5] - 1) * 100,
@@ -114,7 +120,7 @@ def headline(ticker, events):
     return f"{ticker} has risen on report day in {n - len(downs)} of the last {n} quarters (median move {fmt(med)})"
 
 
-def page_data(ticker, name, events, next_event, hist, today):
+def page_data(ticker, name, events, next_event, next_eps, hist, today):
     med = []
     for off in range(-PRE_DAYS, POST_DAYS + 1):
         m = median([dict(e["points"]).get(off) for e in events])
@@ -127,10 +133,13 @@ def page_data(ticker, name, events, next_event, hist, today):
         "nextReport": next_event.strftime("%A, %B %-d, %Y") if next_event is not None else None,
         "nextWhen": ("before the market opens" if next_event.hour < 12 else "after the market closes")
                     if next_event is not None else None,
+        "nextEps": round(next_eps, 2) if next_eps is not None else None,
         "median": med,
         "events": [{
             "label": e["label"],
             "reaction": round(e["reaction"], 2) if e["reaction"] is not None else None,
+            "epsEst": e["eps_est"], "epsAct": e["eps_act"],
+            "surprise": round(e["surprise"], 1) if e["surprise"] is not None else None,
             "points": [[o, round(v, 3)] for o, v in e["points"]],
             "runup20": round(e["runup_20"], 2), "runup10": round(e["runup_10"], 2),
             "runup5": round(e["runup_5"], 2),
@@ -168,13 +177,13 @@ def main():
     if len(sys.argv) != 2:
         sys.exit("Usage: research.py TICKER")
     ticker = sys.argv[1].upper()
-    event_dates, next_event, hist, name = fetch(ticker)
-    events = build_events(hist, event_dates)
+    past, next_event, next_eps, hist, name = fetch(ticker)
+    events = build_events(hist, past)
     if not events:
         sys.exit("Not enough price history around earnings dates")
 
     today = pd.Timestamp.today().strftime("%b %-d, %Y")
-    data = page_data(ticker, name, events, next_event, hist, today)
+    data = page_data(ticker, name, events, next_event, next_eps, hist, today)
     page = (TEMPLATE.read_text()
             .replace("__TICKER__", ticker)
             .replace("__DATA__", json.dumps(data)))

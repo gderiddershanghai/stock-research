@@ -37,10 +37,11 @@
 <p class="sub" id="sub"></p>
 <div class="next" id="next" hidden>
   <span class="next-label">Next report</span><span class="next-date" id="next-date"></span>
-  <span class="next-when" id="next-when"></span>
+  <span class="next-when" id="next-when"></span><span class="next-when" id="next-eps"></span>
 </div>
 <h2 id="headline"></h2>
 <p class="note" id="swing"></p>
+<p class="note" id="beats"></p>
 <p class="note">Each line is one quarter's stock price around its report, shown as % difference from the
 closing price on the day before results came out. The blue line is the middle (median) of all quarters.</p>
 <div id="overlay"></div>
@@ -50,7 +51,8 @@ closing price on the day before results came out. The blue line is the middle (m
 <div id="bars"></div>
 <h2>Quarter by quarter</h2>
 <div class="tablewrap"><table id="table"></table></div>
-<p class="note">"Before" columns: how much the price changed over that stretch leading into the report.
+<p class="note">"Profit vs expected": reported profit per share (EPS) compared with the average analyst
+estimate. "Before" columns: how much the price changed over that stretch leading into the report.
 "After" columns: how much it changed from the report-day close. Weeks are trading weeks (5 market days).</p>
 <footer id="foot"></footer>
 <div class="tooltip" id="tip"></div>
@@ -71,7 +73,8 @@ Promise.resolve(__DATA__).then(D => {
   d3.select("#title").text(`${D.name} (${D.ticker})`);
   d3.select("#sub").text(`Last close $${D.lastClose.toFixed(2)} on ${D.lastDate}`);
   if (D.nextReport) { d3.select("#next").attr("hidden", null);
-    d3.select("#next-date").text(D.nextReport); d3.select("#next-when").text(D.nextWhen); }
+    d3.select("#next-date").text(D.nextReport); d3.select("#next-when").text(D.nextWhen);
+    if (D.nextEps != null) d3.select("#next-eps").text(`· analysts expect $${D.nextEps.toFixed(2)} profit per share`); }
   const n = D.events.length, downs = D.events.filter(e=>e.reaction<0).length;
   const medMove = median(D.events.map(e=>e.reaction));
   d3.select("#headline").text(downs*2 > n
@@ -79,6 +82,14 @@ Promise.resolve(__DATA__).then(D => {
     : `${D.ticker} has risen on report day in ${n-downs} of the last ${n} quarters (median move ${fmt(medMove)})`);
   const medAbs = median(D.events.map(e=>Math.abs(e.reaction)));
   d3.select("#swing").html(`<strong>Report-day moves are often large:</strong> typically about ${medAbs.toFixed(0)}% up or down.`);
+  const beat = e => e.surprise!=null && e.epsAct>=e.epsEst;
+  const rated = D.events.filter(e=>e.surprise!=null), beats = rated.filter(beat);
+  const fellAfterBeat = beats.filter(e=>e.reaction<0).length;
+  if (rated.length) {
+    let s = `<strong>Results vs expectations:</strong> profits beat analyst estimates in ${beats.length} of the last ${rated.length} quarters`;
+    s += fellAfterBeat ? ` — but the stock still fell on report day after ${fellAfterBeat} of those beats.` : `.`;
+    d3.select("#beats").html(s);
+  }
   d3.select("#foot").text(`Prices from Yahoo Finance (dividend-adjusted closes), ${n} most recent reported quarters. Generated ${D.updated}. Informational only.`);
 
   // ---- shared highlight state
@@ -158,15 +169,20 @@ Promise.resolve(__DATA__).then(D => {
     const vals = D.events.map(e=>e.reaction);
     const y = d3.scaleLinear().domain([Math.min(...vals,0)-1, Math.max(...vals,0)+1]).nice().range([mt+ph, mt]);
     const slot = pw/D.events.length, bw = Math.min(slot*.55, 56);
+    const barTip = d => {
+      let s = `<strong>${d.label} report</strong><br>${fmt(d.reaction)} on report day`;
+      if (d.surprise != null)
+        s += `<br>Profit $${d.epsAct.toFixed(2)}/share vs $${d.epsEst.toFixed(2)} expected<br>(${d.epsAct>=d.epsEst?"beat":"missed"} by ${Math.abs(d.surprise).toFixed(0)}%)`;
+      return s;
+    };
     svg.append("line").attr("x1",ml).attr("x2",ml+pw).attr("y1",y(0)).attr("y2",y(0)).attr("stroke","#d8dde2");
     const cx = i => ml + slot*(i+.5);
     svg.selectAll("rect.qbar").data(D.events).join("rect").attr("class","qbar")
       .attr("x",(d,i)=>cx(i)-bw/2).attr("width",bw)
       .attr("y",d=>Math.min(y(0),y(d.reaction))).attr("height",d=>Math.max(Math.abs(y(d.reaction)-y(0)),1))
       .attr("rx",2).attr("fill",d=>d.reaction>=0?css("--pos"):css("--neg")).style("cursor","pointer")
-      .on("pointerenter", (ev,d)=>{ setHl(d.label);
-        showTip(ev, `<strong>${d.label} report</strong><br>${fmt(d.reaction)} on report day`); })
-      .on("pointermove", (ev,d)=>showTip(ev, `<strong>${d.label} report</strong><br>${fmt(d.reaction)} on report day`))
+      .on("pointerenter", (ev,d)=>{ setHl(d.label); showTip(ev, barTip(d)); })
+      .on("pointermove", (ev,d)=>showTip(ev, barTip(d)))
       .on("pointerleave", ()=>{ setHl(null); hideTip(); })
       .on("click", (ev,d)=>{ pinned = pinned===d.label ? null : d.label; setHl(null); });
     svg.selectAll("text.val").data(D.events).join("text")
@@ -176,17 +192,24 @@ Promise.resolve(__DATA__).then(D => {
     svg.selectAll("text.blab").data(D.events).join("text")
       .attr("x",(d,i)=>cx(i)).attr("y",d=>d.reaction>=0?y(0)+15:y(0)-6)
       .attr("text-anchor","middle").attr("font-size",12).attr("fill",css("--muted")).text(d=>d.label);
+    svg.selectAll("text.bm").data(D.events.filter(d=>d.surprise!=null)).join("text")
+      .attr("x",(d,i)=>cx(D.events.indexOf(d))).attr("y",d=>d.reaction>=0?y(0)+29:y(0)-20)
+      .attr("text-anchor","middle").attr("font-size",11).attr("font-weight",600)
+      .attr("fill",d=>d.epsAct>=d.epsEst?css("--pos"):css("--neg"))
+      .text(d=>d.epsAct>=d.epsEst?"beat est.":"missed est.");
   }
 
   // ---- table
   {
     const cell = v => v==null ? '<td class="na">–</td>' : `<td class="${v<0?"neg":"pos"}">${fmt(v)}</td>`;
-    const head = `<thead><tr><th>Report</th><th>4&nbsp;wks<br>before</th><th>2&nbsp;wks<br>before</th>
+    const scell = v => v==null ? '<td class="na">–</td>'
+      : `<td class="${v<0?"neg":"pos"}">${v<0?"missed":"beat"} ${Math.abs(v).toFixed(0)}%</td>`;
+    const head = `<thead><tr><th>Report</th><th>Profit vs<br>expected</th><th>4&nbsp;wks<br>before</th><th>2&nbsp;wks<br>before</th>
       <th>1&nbsp;wk<br>before</th><th>Report<br>day</th><th>1&nbsp;wk<br>after</th><th>2&nbsp;wks<br>after</th></tr></thead>`;
     const rows = [...D.events].reverse().map(e =>
-      `<tr data-label="${e.label}"><th>${e.label}</th>${cell(e.runup20)}${cell(e.runup10)}${cell(e.runup5)}${cell(e.reaction)}${cell(e.drift5)}${cell(e.drift10)}</tr>`).join("");
+      `<tr data-label="${e.label}"><th>${e.label}</th>${scell(e.surprise)}${cell(e.runup20)}${cell(e.runup10)}${cell(e.runup5)}${cell(e.reaction)}${cell(e.drift5)}${cell(e.drift10)}</tr>`).join("");
     const m = k => median(D.events.map(e=>e[k]));
-    const medRow = `<tr class="med"><th>Median</th>${cell(m("runup20"))}${cell(m("runup10"))}${cell(m("runup5"))}${cell(m("reaction"))}${cell(m("drift5"))}${cell(m("drift10"))}</tr>`;
+    const medRow = `<tr class="med"><th>Median</th>${scell(m("surprise"))}${cell(m("runup20"))}${cell(m("runup10"))}${cell(m("runup5"))}${cell(m("reaction"))}${cell(m("drift5"))}${cell(m("drift10"))}</tr>`;
     d3.select("#table").html(head + "<tbody>" + rows + medRow + "</tbody>");
   }
 });
