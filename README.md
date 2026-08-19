@@ -18,3 +18,16 @@ Writes `docs/<ticker>.html`, updates `docs/index.html` and
 
 Data: Yahoo Finance via yfinance (dividend-adjusted closes). US-listed tickers.
 Informational only — not financial advice.
+
+## Portfolio screen
+
+```bash
+.venv/bin/python scripts/portfolio.py   # reads private/holdings.json
+```
+
+Reads holdings + a new-cash amount from `private/holdings.json` (gitignored),
+computes sector gaps vs approximate S&P 500 weights, concentration, and
+correlations, then screens S&P 500 names in the underweight sectors for low
+correlation with the portfolio. Writes `private/report.md` (full detail,
+private) and `docs/portfolio.html` (suggestions only — no holdings or dollar
+amounts; unlisted). See `.claude/skills/portfolio/SKILL.md` for the chat flow.
