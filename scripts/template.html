@@ -75,7 +75,9 @@ beat expectations and the price <em>still</em> fell.</p>
 <p class="note" id="table-note">Every change is measured against the report: "before" columns show how much the price
 rose or fell over that stretch <em>leading into</em> the report (ending at the last close before results);
 the highlighted <strong>report day</strong> column is the move on the day results came out; "after"
-columns show what happened <em>from the report-day close onward</em>. Weeks are trading weeks (5 market days).</p>
+columns show what happened <em>from the report-day close onward</em>. "Days to recover": for reports
+where the price fell on report day, trading days until the closing price climbed back to its
+pre-report level — "not yet" means it still hasn't. Weeks are trading weeks (5 market days).</p>
 <footer id="foot"></footer>
 <div class="tooltip" id="tip"></div>
 </main>
@@ -370,19 +372,22 @@ Promise.resolve(__DATA__).then(D => {
       : `<td class="${isBeat(e)?"pos":"neg"}">$${e.epsAct.toFixed(2)} (${isBeat(e)?"+":"−"}${Math.abs(e.surprise).toFixed(0)}%)</td>`;
     const head = `<thead><tr><th>Report</th><th>Analysts<br>expected</th><th>Actual<br>profit</th>
       <th>2&nbsp;wks<br>before</th><th>1&nbsp;wk<br>before</th><th>1&nbsp;day<br>before</th>
-      <th class="rpt">Report<br>day</th><th>1&nbsp;day<br>after</th><th>1&nbsp;wk<br>after</th><th>2&nbsp;wks<br>after</th></tr></thead>`;
+      <th class="rpt">Report<br>day</th><th>1&nbsp;day<br>after</th><th>1&nbsp;wk<br>after</th><th>2&nbsp;wks<br>after</th><th>4&nbsp;wks<br>after</th><th>Days to<br>recover</th></tr></thead>`;
+    const rCell = e => e.reaction==null || e.reaction>=0 ? '<td class="na">–</td>'
+      : e.recovDays!=null ? `<td class="pos">${e.recovDays} days</td>`
+      : `<td class="neg">not yet (${fmt(e.recovGap)})</td>`;
     const nextRow = (D.nextEps!=null && D.nextLabel)
       ? `<tr class="nextrow"><th>${D.nextLabel} · next</th><td><strong>$${D.nextEps.toFixed(2)}</strong></td>`
         + `<td class="na">due ${D.nextShort}</td>` + '<td class="na">–</td>'.repeat(3)
-        + '<td class="na rpt">–</td>' + '<td class="na">–</td>'.repeat(3) + `</tr>`
+        + '<td class="na rpt">–</td>' + '<td class="na">–</td>'.repeat(5) + `</tr>`
       : "";
     const rows = nextRow + [...D.events].reverse().map(e =>
-      `<tr data-label="${e.label}"><th>${e.label}</th>${eCell(e)}${aCell(e)}${cell(e.runup10)}${cell(e.runup5)}${cell(e.runup1)}${cell(e.reaction,"rpt")}${cell(e.drift1)}${cell(e.drift5)}${cell(e.drift10)}</tr>`).join("");
+      `<tr data-label="${e.label}"><th>${e.label}</th>${eCell(e)}${aCell(e)}${cell(e.runup10)}${cell(e.runup5)}${cell(e.runup1)}${cell(e.reaction,"rpt")}${cell(e.drift1)}${cell(e.drift5)}${cell(e.drift10)}${cell(e.drift20)}${rCell(e)}</tr>`).join("");
     const m = k => median(D.events.map(e=>e[k]));
     const ms = m("surprise");
     const msCell = ms==null ? '<td class="na">–</td>'
       : `<td class="${ms>=0?"pos":"neg"}">${ms>=0?"beat":"missed"} ${Math.abs(ms).toFixed(0)}%</td>`;
-    const medRow = `<tr class="med"><th>Median</th><td class="na"></td>${msCell}${cell(m("runup10"))}${cell(m("runup5"))}${cell(m("runup1"))}${cell(m("reaction"),"rpt")}${cell(m("drift1"))}${cell(m("drift5"))}${cell(m("drift10"))}</tr>`;
+    const medRow = `<tr class="med"><th>Median</th><td class="na"></td>${msCell}${cell(m("runup10"))}${cell(m("runup5"))}${cell(m("runup1"))}${cell(m("reaction"),"rpt")}${cell(m("drift1"))}${cell(m("drift5"))}${cell(m("drift10"))}${cell(m("drift20"))}<td class="na">–</td></tr>`;
     d3.select("#table").html(head + "<tbody>" + rows + medRow + "</tbody>");
     d3.selectAll("#table tbody tr").style("cursor","pointer")
       .on("click", function(){ if (this.dataset.label) toggle(this.dataset.label); });

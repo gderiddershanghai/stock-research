@@ -97,7 +97,19 @@ def build_events(hist, past):
             "drift_1": (closes.iloc[i0 + 1] / closes.iloc[i0] - 1) * 100 if i0 + 1 < len(closes) and day0 is not None else None,
             "drift_5": (closes.iloc[i0 + 5] / closes.iloc[i0] - 1) * 100 if i0 + 5 < len(closes) and day0 is not None else None,
             "drift_10": (closes.iloc[i0 + 10] / closes.iloc[i0] - 1) * 100 if i0 + 10 < len(closes) and day0 is not None else None,
+            "drift_20": (closes.iloc[i0 + 20] / closes.iloc[i0] - 1) * 100 if i0 + 20 < len(closes) and day0 is not None else None,
         })
+        # recovery after a report-day drop: trading days until close regains the pre-report level
+        recov_days = recov_gap = None
+        if day0 is not None and day0 < 0:
+            fut = closes.iloc[i0:]
+            hit = fut[fut >= ref]
+            if len(hit):
+                recov_days = int(closes.index.get_loc(hit.index[0]) - i0)
+            else:
+                recov_gap = (closes.iloc[-1] / ref - 1) * 100
+        events[-1]["recov_days"] = recov_days
+        events[-1]["recov_gap"] = recov_gap
     return events
 
 
@@ -150,6 +162,9 @@ def page_data(ticker, name, events, next_event, next_eps, hist, today):
             "drift1": round(e["drift_1"], 2) if e["drift_1"] is not None else None,
             "drift5": round(e["drift_5"], 2) if e["drift_5"] is not None else None,
             "drift10": round(e["drift_10"], 2) if e["drift_10"] is not None else None,
+            "drift20": round(e["drift_20"], 2) if e["drift_20"] is not None else None,
+            "recovDays": e["recov_days"],
+            "recovGap": round(e["recov_gap"], 1) if e["recov_gap"] is not None else None,
         } for e in events],
     }
 
