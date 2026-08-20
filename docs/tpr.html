@@ -26,7 +26,7 @@
   .chip.clear { border-style:dashed; color:var(--muted); font-weight:400; }
   .hint { color:var(--muted); font-size:13px; font-style:italic; margin:6px 0 0; }
   table { border-collapse:collapse; width:100%; font-variant-numeric:tabular-nums; font-size:14.5px; margin-top:6px; }
-  th, td { padding:7px 8px; text-align:right; border-bottom:1px solid var(--grid); white-space:nowrap; }
+  th, td { padding:7px 7px; text-align:right; border-bottom:1px solid var(--grid); white-space:nowrap; }
   th { font-weight:600; } tbody th { text-align:left; }
   thead th { color:var(--muted); font-weight:600; font-size:12.5px; vertical-align:bottom; }
   td.neg { color:var(--neg); } td.pos { color:var(--pos); } td.na { color:var(--muted); }
@@ -36,6 +36,9 @@
   tr.nextrow th, tr.nextrow td { background:var(--band); border-bottom:2px solid var(--band-edge); }
   tbody tr.hl { background:#fff8e6; } tbody tr.hl td.rpt { background:#f6efd8; }
   .tablewrap { overflow-x:auto; }
+  @media (min-width:840px) {
+    .tablewrap { width:min(calc(100vw - 48px), 1060px); position:relative; left:50%; transform:translateX(-50%); }
+  }
   footer { margin-top:40px; color:var(--muted); font-size:13px; border-top:1px solid var(--grid); padding-top:14px; }
 </style>
 </head><body><main>
